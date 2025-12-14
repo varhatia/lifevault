@@ -1,0 +1,9 @@
+# Add these lines to your frontend/.env.local file:
+
+# Email Configuration (Development - MailHog)
+USE_MAILHOG=true
+MAILHOG_HOST=localhost
+MAILHOG_PORT=1025
+EMAIL_FROM=noreply@lifevault.app
+EMAIL_FROM_NAME=LifeVault
+NEXT_PUBLIC_APP_URL=http://localhost:3000

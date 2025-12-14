@@ -1,0 +1,73 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { deleteEncryptedFile } from '@/lib/api/s3';
+import { getUserFromRequest } from '@/lib/api/auth';
+
+/**
+ * @route   DELETE /api/vaults/my/:id
+ * @desc    Delete a vault item
+ * @access  Private
+ */
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ vaultId: string; id: string }> }
+) {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const { vaultId, id: itemId } = await params;
+    
+    const userId = String(user.id);
+    // Verify user owns the vault
+    const myVault = await prisma.myVault.findFirst({
+      where: { id: vaultId, ownerId: userId },
+    });
+
+    if (!myVault) {
+      return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+    }
+
+    // Find item to get S3 key
+    // Verify item belongs to this vault
+    const item = await prisma.vaultItem.findFirst({
+      where: { 
+        id: itemId,
+        myVaultId: vaultId,
+      },
+      select: { s3Key: true, id: true },
+    });
+    
+    if (!item) {
+      return NextResponse.json(
+        { error: 'Vault item not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Delete encrypted file from S3
+    if (item.s3Key) {
+      try {
+        await deleteEncryptedFile(item.s3Key);
+      } catch (error) {
+        console.error('Error deleting from S3:', error);
+        // Continue with DB deletion even if S3 deletion fails
+      }
+    }
+    
+    // Delete metadata from database
+    await prisma.vaultItem.delete({
+      where: { id: itemId },
+    });
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting vault item:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete vault item' },
+      { status: 500 }
+    );
+  }
+}
+

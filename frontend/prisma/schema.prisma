@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                            String                 @id @default(uuid()) @db.Uuid
+  email                         String                 @unique(map: "ix_users_email") @db.VarChar(255)
+  hashedPassword                String                 @map("hashed_password") @db.VarChar(255)
+  fullName                      String?                @map("full_name") @db.VarChar(255)
+  deviceBindingKey              String?                @map("device_binding_key") @db.VarChar(255)
+  emailVerified                 Boolean                @default(false) @map("email_verified")
+  emailVerificationToken        String?                @map("email_verification_token") @db.VarChar(255)
+  emailVerificationTokenExpires DateTime?              @map("email_verification_token_expires") @db.Timestamptz(6)
+  emailVerifiedAt               DateTime?              @map("email_verified_at") @db.Timestamptz(6)
+  vaultSetupCompleted           Boolean                @default(false) @map("vault_setup_completed")
+  vaultSetupCompletedAt         DateTime?              @map("vault_setup_completed_at") @db.Timestamptz(6)
+  serverKeyPartB                String?                @map("server_key_part_b") @db.VarChar(512)
+  serverKeyPartBEncryptedAt     DateTime?              @map("server_key_part_b_encrypted_at") @db.Timestamptz(6)
+  serverKeyPartBKeyVersion      Int                    @default(1) @map("server_key_part_b_key_version")
+  isActive                      Boolean                @default(true) @map("is_active")
+  createdAt                     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastPasswordChange            DateTime?              @map("last_password_change") @db.Timestamptz(6)
+  lastLogin                     DateTime?              @map("last_login") @db.Timestamptz(6)
+  recoveryKeyEncryptedVaultKey  String?                @map("recovery_key_encrypted_vault_key") @db.Text
+  recoveryKeyGeneratedAt        DateTime?              @map("recovery_key_generated_at") @db.Timestamptz(6)
+  familyMemberships             FamilyMember[]
+  familyVaultItemsCreated       FamilyVaultItem[]      @relation("FamilyVaultItemCreator")
+  familyVaultItemsUpdated       FamilyVaultItem[]      @relation("FamilyVaultItemUpdater")
+  familyVaults                  FamilyVault[]          @relation("FamilyVaultOwner")
+  myVaults                      MyVault[]              @relation("MyVaultOwner")
+  nominees                      Nominee[]
+  accessRequests                NomineeAccessRequest[]
+  inactivityReminders           InactivityReminder[]
+
+  @@map("users")
+}
+
+model MyVault {
+  id        String      @id @default(uuid()) @db.Uuid
+  name      String      @db.VarChar(255)
+  ownerId   String      @map("owner_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  items     VaultItem[]
+  nominees  Nominee[]   @relation("MyVaultNominees")
+  owner     User        @relation("MyVaultOwner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ownerId], map: "ix_my_vaults_owner_id")
+  @@map("my_vaults")
+}
+
+model VaultItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  myVaultId     String   @map("my_vault_id") @db.Uuid
+  category      String   @db.VarChar(50)
+  title         String   @db.VarChar(255)
+  encryptedData Bytes    @map("encrypted_data")
+  s3Key         String?  @map("s3_key") @db.VarChar(512)
+  iv            String?  @map("iv") @db.VarChar(32)
+  tags          String[] @db.VarChar
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  myVault       MyVault  @relation(fields: [myVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([category], map: "ix_vault_items_category")
+  @@index([myVaultId], map: "ix_vault_items_my_vault_id")
+  @@map("vault_items")
+}
+
+model FamilyVault {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String            @db.VarChar(255)
+  ownerId   String            @map("owner_id") @db.Uuid
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  members   FamilyMember[]
+  items     FamilyVaultItem[]
+  nominees  Nominee[]         @relation("FamilyVaultNominees")
+  owner     User              @relation("FamilyVaultOwner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ownerId], map: "ix_family_vaults_owner_id")
+  @@map("family_vaults")
+}
+
+model FamilyMember {
+  id                       String      @id @default(uuid()) @db.Uuid
+  familyVaultId            String      @map("family_vault_id") @db.Uuid
+  userId                   String      @map("user_id") @db.Uuid
+  role                     String      @default("viewer") @db.VarChar(20)
+  publicKey                String?     @map("public_key") @db.Text
+  encryptedSharedMasterKey String?     @map("encrypted_shared_master_key") @db.Text
+  encryptedPrivateKey      String?     @map("encrypted_private_key") @db.Text
+  encryptedPrivateKeyTemp  String?     @map("encrypted_private_key_temp") @db.Text
+  recoveryKeyEncryptedSMK  String?     @map("recovery_key_encrypted_smk") @db.Text
+  recoveryKeyGeneratedAt   DateTime?   @map("recovery_key_generated_at") @db.Timestamptz(6)
+  inviteToken              String?     @map("invite_token") @db.VarChar(255)
+  inviteEmail              String?     @map("invite_email") @db.VarChar(255)
+  invitePhone              String?     @map("invite_phone") @db.VarChar(50)
+  invitedAt                DateTime?   @map("invited_at") @db.Timestamptz(6)
+  acceptedAt               DateTime?   @map("accepted_at") @db.Timestamptz(6)
+  isActive                 Boolean     @default(true) @map("is_active")
+  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  familyVault              FamilyVault @relation(fields: [familyVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([familyVaultId, userId])
+  @@index([familyVaultId], map: "ix_family_members_family_vault_id")
+  @@index([userId], map: "ix_family_members_user_id")
+  @@index([role], map: "ix_family_members_role")
+  @@map("family_members")
+}
+
+model FamilyVaultItem {
+  id            String      @id @default(uuid()) @db.Uuid
+  familyVaultId String      @map("family_vault_id") @db.Uuid
+  category      String      @db.VarChar(50)
+  title         String      @db.VarChar(255)
+  s3Key         String?     @map("s3_key") @db.VarChar(512)
+  iv            String?     @map("iv") @db.VarChar(32)
+  tags          String[]    @db.VarChar
+  createdBy     String      @map("created_by") @db.Uuid
+  updatedBy     String?     @map("updated_by") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  familyVault   FamilyVault @relation(fields: [familyVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator       User        @relation("FamilyVaultItemCreator", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updater       User?       @relation("FamilyVaultItemUpdater", fields: [updatedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([familyVaultId], map: "ix_family_vault_items_family_vault_id")
+  @@index([category], map: "ix_family_vault_items_category")
+  @@index([createdBy], map: "ix_family_vault_items_created_by")
+  @@map("family_vault_items")
+}
+
+model Nominee {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  userId              String                 @map("user_id") @db.Uuid
+  vaultType           String                 @map("vault_type") @db.VarChar(20)
+  vaultId             String?                @map("vault_id") @db.Uuid
+  myVaultId           String?                @map("my_vault_id") @db.Uuid
+  familyVaultId       String?                @map("family_vault_id") @db.Uuid
+  nomineeName         String                 @map("nominee_name") @db.VarChar(255)
+  nomineeEmail        String?                @map("nominee_email") @db.VarChar(255)
+  nomineePhone        String?                @map("nominee_phone") @db.VarChar(50)
+  nomineeKeyPartC     String                 @map("nominee_key_part_c") @db.VarChar(512)
+  accessTriggerDays   Int                    @default(90) @map("access_trigger_days")
+  isActive            Boolean                @default(true) @map("is_active")
+  unlockInitiatedAt   DateTime?              @map("unlock_initiated_at") @db.Timestamptz(6)
+  unlockCompletedAt   DateTime?              @map("unlock_completed_at") @db.Timestamptz(6)
+  createdAt           DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user                User                   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  myVault             MyVault?               @relation("MyVaultNominees", fields: [myVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  familyVault         FamilyVault?           @relation("FamilyVaultNominees", fields: [familyVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  accessRequests      NomineeAccessRequest[]
+  inactivityReminders InactivityReminder[]
+
+  @@index([userId], map: "ix_nominees_user_id")
+  @@index([vaultType], map: "ix_nominees_vault_type")
+  @@index([vaultId], map: "ix_nominees_vault_id")
+  @@index([myVaultId], map: "ix_nominees_my_vault_id")
+  @@index([familyVaultId], map: "ix_nominees_family_vault_id")
+  @@map("nominees")
+}
+
+model NomineeAccessRequest {
+  id              String    @id @default(uuid()) @db.Uuid
+  nomineeId       String    @map("nominee_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  nomineeName     String    @map("nominee_name") @db.VarChar(255)
+  nomineeEmail    String?   @map("nominee_email") @db.VarChar(255)
+  nomineePhone    String?   @map("nominee_phone") @db.VarChar(50)
+  relationship    String    @map("relationship") @db.VarChar(100)
+  reasonForAccess String    @map("reason_for_access") @db.Text
+  status          String    @default("pending") @map("status") @db.VarChar(20)
+  approvalToken   String?   @unique @map("approval_token") @db.VarChar(255)
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  rejectedAt      DateTime? @map("rejected_at") @db.Timestamptz(6)
+  rejectedReason  String?   @map("rejected_reason") @db.Text
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  nominee         Nominee   @relation(fields: [nomineeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "ix_nominee_access_requests_user_id")
+  @@index([nomineeId], map: "ix_nominee_access_requests_nominee_id")
+  @@index([status], map: "ix_nominee_access_requests_status")
+  @@index([approvalToken], map: "ix_nominee_access_requests_approval_token")
+  @@map("nominee_access_requests")
+}
+
+model InactivityReminder {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  nomineeId      String?  @map("nominee_id") @db.Uuid
+  reminderType   String   @map("reminder_type") @db.VarChar(50)
+  reminderNumber Int      @default(1) @map("reminder_number")
+  daysInactive   Int      @map("days_inactive")
+  sentAt         DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+  nominee        Nominee? @relation(fields: [nomineeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([nomineeId], map: "ix_inactivity_reminders_nominee_id")
+  @@index([reminderType], map: "ix_inactivity_reminders_reminder_type")
+  @@index([userId], map: "ix_inactivity_reminders_user_id")
+  @@map("inactivity_reminders")
+}

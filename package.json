@@ -1,0 +1,25 @@
+{
+  "name": "lifevault",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LifeVault - Secure Family Finance & Legacy Management",
+  "scripts": {
+    "setup": "./scripts/setup-local.sh",
+    "dev": "./scripts/dev.sh",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && source .venv/bin/activate && uvicorn app.main:app --reload",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -e .",
+    "migrate": "cd backend && source .venv/bin/activate && alembic upgrade head"
+  },
+  "keywords": [
+    "vault",
+    "encryption",
+    "family",
+    "legacy",
+    "finance"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
+

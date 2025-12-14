@@ -1,0 +1,10 @@
+{
+  "crons": [
+    {
+      "path": "/api/nominee/access/check-inactivity",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}
+
+
