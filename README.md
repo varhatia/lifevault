@@ -1,5 +1,13 @@
 # LifeVault – Secure Family Finance & Legacy Management
 
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green?style=flat-square&logo=node.js)](https://nodejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![Zero-Knowledge](https://img.shields.io/badge/Zero--Knowledge-Architecture-red?style=flat-square&logo=lock)](https://github.com/varhatia/lifevault)
+[![MVP](https://img.shields.io/badge/Status-MVP-yellow?style=flat-square)](https://github.com/varhatia/lifevault)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
 > **MVP v1.0** – A full-stack encrypted vault application for securely storing and sharing critical financial and legal information with family members and nominees.
 
 ## 🎯 Overview
