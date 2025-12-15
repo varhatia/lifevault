@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 type User = {
   id: string;
@@ -11,7 +11,7 @@ type User = {
 };
 
 export function useAuth() {
-  const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,7 +43,7 @@ export function useAuth() {
     };
 
     checkAuth();
-  }, []);
+  }, [pathname]);
 
   return {
     user,

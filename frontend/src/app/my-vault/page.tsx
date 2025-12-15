@@ -467,7 +467,7 @@ export default function MyVaultPage() {
       </div>
 
       {vaults.length === 0 ? (
-        <div className="text-center py-12 bg-slate-900 rounded-lg border border-slate-800">
+        <div className="text-center py-12 bg-slate-900/70 rounded-xl border border-dashed border-slate-700">
           <Lock className="w-12 h-12 text-slate-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-slate-300 mb-2">
             No Vaults Yet
@@ -497,10 +497,10 @@ export default function MyVaultPage() {
                   setShowUnlockModal(true);
                 }
               }}
-              className={`p-4 bg-slate-900 rounded-lg border cursor-pointer transition-colors ${
+              className={`p-4 rounded-xl border cursor-pointer transition-colors ${
                 selectedVault?.id === vault.id
-                  ? "border-brand-500"
-                  : "border-slate-800 hover:border-slate-700"
+                  ? "border-brand-500 bg-slate-900/70"
+                  : "border-slate-800 bg-slate-900/60 hover:border-brand-500/60"
               }`}
             >
               <div className="flex items-start justify-between mb-3">
@@ -525,7 +525,7 @@ export default function MyVaultPage() {
       )}
 
       {selectedVault && (
-        <div className="mt-8 bg-slate-900 rounded-lg border border-slate-800 p-6">
+        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/70 p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-bold text-white">{selectedVault.name}</h2>
