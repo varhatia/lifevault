@@ -4,22 +4,25 @@ const config: Config = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/**/*.{js,ts,jsx,tsx,mdx}"
   ],
   theme: {
     extend: {
       colors: {
         brand: {
-          50: "#ECFDF5",  // soft green tint
-          100: "#D1FAE5",
-          500: "#10B981", // primary soft green
-          600: "#059669",
-          700: "#047857", // deeper green accent
-        },
-      },
-    },
+          50: "#f0fdf4",
+          100: "#dcfce7",
+          200: "#bbf7d0",
+          300: "#86efac",
+          400: "#4ade80",
+          500: "#22c55e",
+          600: "#16a34a",
+          700: "#15803d"
+        }
+      }
+    }
   },
-  plugins: [],
+  plugins: []
 };
 
 export default config;

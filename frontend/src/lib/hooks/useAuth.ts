@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 type User = {
   id: string;
@@ -11,6 +11,7 @@ type User = {
 };
 
 export function useAuth() {
+  const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,7 @@ export function useAuth() {
     };
 
     checkAuth();
-  }, [pathname]);
+  }, [pathname]); // Re-check auth on route changes
 
   return {
     user,

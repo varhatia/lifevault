@@ -2,9 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Typography: Inter / SF Pro / system stack */
 body {
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-    "SF Pro Text", "SF Pro Display", sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", sans-serif;
 }
+
 

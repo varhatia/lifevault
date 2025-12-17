@@ -1,35 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/hooks/useAuth";
 import LandingPage from "./components/LandingPage";
-import Link from "next/link";
 
 export default function HomePage() {
   const { isAuthenticated, loading } = useAuth();
-  const [showLanding, setShowLanding] = useState(true);
-
-  useEffect(() => {
-    if (!loading) {
-      setShowLanding(!isAuthenticated);
-    }
-  }, [isAuthenticated, loading]);
 
   // Show landing page for unauthenticated users
-  if (showLanding && !loading) {
+  if (!loading && !isAuthenticated) {
     return <LandingPage />;
   }
 
-  // Show dashboard for authenticated users
+  // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-pulse text-slate-400">Loading...</div>
+      <div className="space-y-6">
+        <p className="text-sm text-slate-400">Loading...</p>
       </div>
     );
   }
 
-  // Dashboard for authenticated users
+  // Show dashboard for authenticated users
   return (
     <div className="space-y-6">
       <section>
@@ -84,39 +76,24 @@ export default function HomePage() {
   );
 }
 
-function Card(props: { title: string; description: string; href: string }) {
-  return (
-    <Link
-      href={props.href}
-      className="group flex flex-col rounded-xl border border-slate-800 bg-slate-900/40 p-4 hover:border-brand-500 hover:bg-slate-900"
-    >
-      <h2 className="text-base font-semibold">{props.title}</h2>
-      <p className="mt-2 text-xs text-slate-300">{props.description}</p>
-      <span className="mt-3 text-xs font-medium text-brand-400 group-hover:text-brand-300">
-        Open →
-      </span>
-    </Link>
-  );
-}
-
-function VaultSummaryCard(props: {
-  title: string;
-  href: string;
-  tagline: string;
-  bullets: string[];
+function VaultSummaryCard(props: { 
+  title: string; 
+  href: string; 
+  tagline: string; 
+  bullets: string[] 
 }) {
   return (
     <Link
       href={props.href}
-      className="group flex h-full flex-col rounded-xl border border-slate-800 bg-slate-900/60 p-6 hover:border-brand-500 hover:bg-slate-900 transition-colors"
+      className="group flex flex-col rounded-xl border border-slate-800 bg-slate-900/40 p-6 hover:border-brand-500 hover:bg-slate-900 transition-colors"
     >
-      <h2 className="text-lg font-semibold text-white">{props.title}</h2>
-      <p className="mt-2 text-sm text-slate-200">{props.tagline}</p>
-      <ul className="mt-3 space-y-1.5 text-xs text-slate-300">
-        {props.bullets.map((item) => (
-          <li key={item} className="flex gap-2">
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-brand-500" />
-            <span>{item}</span>
+      <h2 className="text-xl font-semibold text-white">{props.title}</h2>
+      <p className="mt-2 text-sm text-slate-300">{props.tagline}</p>
+      <ul className="mt-4 space-y-2 flex-1">
+        {props.bullets.map((bullet, idx) => (
+          <li key={idx} className="flex items-start gap-2 text-xs text-slate-400">
+            <span className="text-brand-400 mt-1">•</span>
+            <span>{bullet}</span>
           </li>
         ))}
       </ul>

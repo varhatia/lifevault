@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { X, Copy, Check, Download, AlertTriangle } from "lucide-react";
 import {
   deriveKeyFromPassword,
@@ -9,6 +9,7 @@ import {
   importRecoveryKey,
   encryptVaultKeyWithRecoveryKey,
 } from "@/lib/crypto";
+import { evaluatePasswordStrength } from "@/lib/passwordStrength";
 
 type SetupVaultModalProps = {
   isOpen: boolean;
@@ -29,6 +30,14 @@ export default function SetupVaultModal({
   const [recoveryKeyCopied, setRecoveryKeyCopied] = useState(false);
   const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
 
+  // Evaluate password strength in real-time
+  const passwordStrength = useMemo(() => {
+    if (!masterPassword) {
+      return null;
+    }
+    return evaluatePasswordStrength(masterPassword);
+  }, [masterPassword]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,8 +50,13 @@ export default function SetupVaultModal({
       return;
     }
 
-    if (masterPassword.length < 8) {
-      setError("Master password must be at least 8 characters");
+    // Validate password strength
+    if (!passwordStrength || !passwordStrength.isValid) {
+      const unmetRequirements = passwordStrength?.requirements
+        .filter((req) => !req.met)
+        .map((req) => req.message)
+        .join(", ") || "Password does not meet requirements";
+      setError(`Password requirements not met: ${unmetRequirements}`);
       return;
     }
 
@@ -306,13 +320,63 @@ export default function SetupVaultModal({
               value={masterPassword}
               onChange={(e) => setMasterPassword(e.target.value)}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
-              placeholder="Enter your master password"
+              placeholder="Enter your master password (12+ characters)"
               required
               autoFocus
             />
             <p className="mt-1 text-xs text-slate-400">
-              Minimum 8 characters. This encrypts all your vault data.
+              This encrypts all your vault data. Use a strong password.
             </p>
+            
+            {/* Password Strength Indicator */}
+            {masterPassword && passwordStrength && (
+              <div className="mt-2 space-y-2">
+                {/* Strength Bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        passwordStrength.color === "red"
+                          ? "bg-red-500"
+                          : passwordStrength.color === "orange"
+                          ? "bg-orange-500"
+                          : passwordStrength.color === "yellow"
+                          ? "bg-yellow-500"
+                          : "bg-green-500"
+                      }`}
+                      style={{ width: `${passwordStrength.percentage}%` }}
+                    />
+                  </div>
+                  <span
+                    className={`text-[10px] font-medium ${
+                      passwordStrength.color === "red"
+                        ? "text-red-400"
+                        : passwordStrength.color === "orange"
+                        ? "text-orange-400"
+                        : passwordStrength.color === "yellow"
+                        ? "text-yellow-400"
+                        : "text-green-400"
+                    }`}
+                  >
+                    {passwordStrength.label}
+                  </span>
+                </div>
+
+                {/* Requirements Checklist */}
+                <div className="space-y-1">
+                  {passwordStrength.requirements.map((req, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-[10px]">
+                      <span className={req.met ? "text-green-400" : "text-slate-500"}>
+                        {req.met ? "✓" : "○"}
+                      </span>
+                      <span className={req.met ? "text-slate-300" : "text-slate-500"}>
+                        {req.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -341,8 +405,8 @@ export default function SetupVaultModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
-              className="flex-1 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+              disabled={loading || (passwordStrength ? !passwordStrength.isValid : false)}
+              className="flex-1 rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Setting up..." : "Set Up Vault"}
             </button>

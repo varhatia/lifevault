@@ -18,7 +18,7 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
+    <div className="min-h-screen bg-slate-950 text-slate-50 -mx-4 sm:-mx-6 lg:-mx-8">
       {/* Hero / Primary */}
       <section className="relative overflow-hidden border-b border-slate-800">
         <div className="absolute inset-0 bg-gradient-to-r from-brand-500/10 via-transparent to-brand-700/10" />
