@@ -6,7 +6,7 @@ import { sendVerificationEmail } from '@/lib/api/email';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, fullName, phone, dateOfBirth } = body || {};
+    const { email, password, fullName } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -31,63 +31,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate phone number format if provided
-    if (phone) {
-      const phoneRegex = /^\+[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(phone)) {
-        return NextResponse.json(
-          { error: 'Phone number must be in international format (e.g., +1234567890)' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Validate date of birth if provided
-    let dobDate: Date | null = null;
-    if (dateOfBirth) {
-      dobDate = new Date(dateOfBirth);
-      if (isNaN(dobDate.getTime())) {
-        return NextResponse.json(
-          { error: 'Invalid date of birth' },
-          { status: 400 }
-        );
-      }
-
-      // Check if user is at least 18 years old
-      const today = new Date();
-      const age = today.getFullYear() - dobDate.getFullYear();
-      const monthDiff = today.getMonth() - dobDate.getMonth();
-      const dayDiff = today.getDate() - dobDate.getDate();
-      const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age;
-
-      if (actualAge < 18) {
-        return NextResponse.json(
-          { error: 'You must be at least 18 years old to create an account' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Check for duplicate users by email
-    const existingByEmail = await prisma.user.findUnique({ where: { email } });
-    if (existingByEmail) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
         { status: 409 }
       );
-    }
-
-    // Check for duplicate users by phone (if provided)
-    if (phone) {
-      const existingByPhone = await prisma.user.findFirst({
-        where: { phone: phone.trim() },
-      });
-      if (existingByPhone) {
-        return NextResponse.json(
-          { error: 'User with this phone number already exists' },
-          { status: 409 }
-        );
-      }
     }
 
     const hashedPassword = await hashPassword(password);
@@ -102,8 +51,6 @@ export async function POST(req: NextRequest) {
         email,
         hashedPassword,
         fullName: fullName || null,
-        phone: phone ? phone.trim() : null,
-        dateOfBirth: dobDate,
         emailVerified: false, // Email not verified yet
         emailVerificationToken: verificationToken,
         emailVerificationTokenExpires: expiresAt,

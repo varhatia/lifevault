@@ -102,13 +102,23 @@ export default function RecoveryKeyResetModal({
       let newEncryptedPrivateKey: string | null = null;
       
       if (vaultType === "my_vault") {
-        // MyVault: Store verifier
+        // MyVault: Store verifier and encrypted vault key
         const verifierKey = `vaultVerifier_${vaultId}`;
         const verifierPayload = await encryptTextData(
           { verifier: "lifevault-v1", vaultId: vaultId },
           newMasterPasswordKey
         );
         localStorage.setItem(verifierKey, JSON.stringify(verifierPayload));
+
+        // Store master password-encrypted vault key (needed for unlock)
+        const vaultKeyStorageKey = `my_vault_${vaultId}`;
+        const encryptedVaultKeyWithPassword = await encryptTextData(
+          { keyHex: keyHex },
+          newMasterPasswordKey
+        );
+        localStorage.setItem(vaultKeyStorageKey, JSON.stringify(encryptedVaultKeyWithPassword));
+
+        // Note: Server storage will happen after API call succeeds (see below)
       } else {
         // Family Vault: Need to get private key and re-encrypt it with new password
         // First, try to get private key from localStorage (if available and can be decrypted)
@@ -238,6 +248,34 @@ export default function RecoveryKeyResetModal({
         throw new Error(data.error || "Failed to reset recovery key");
       }
 
+      // For MyVault, ensure verifier and encrypted vault key are stored on server for cross-device access
+      // This must happen AFTER the API call succeeds to ensure everything is in sync
+      if (vaultType === "my_vault") {
+        // Get the verifier and encrypted vault key we stored earlier
+        const verifierKey = `vaultVerifier_${vaultId}`;
+        const verifierPayloadStr = localStorage.getItem(verifierKey);
+        const vaultKeyStorageKey = `my_vault_${vaultId}`;
+        const encryptedVaultKeyWithPasswordStr = localStorage.getItem(vaultKeyStorageKey);
+        
+        // Store on server for cross-device access (if we have the values)
+        if (verifierPayloadStr && encryptedVaultKeyWithPasswordStr) {
+          try {
+            await fetch(`/api/vaults/my/${vaultId}/keys`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                masterPasswordVerifier: verifierPayloadStr,
+                masterPasswordEncryptedVaultKey: encryptedVaultKeyWithPasswordStr,
+                recoveryKeyEncryptedVaultKey: JSON.stringify(encryptedKey),
+              }),
+            });
+          } catch (serverError) {
+            console.error("Failed to store vault keys on server:", serverError);
+            // Don't fail the flow if server storage fails
+          }
+        }
+      }
+
       // For Family Vault, store private key and SMK in localStorage with new password
       if (vaultType === "family_vault") {
         // If we have the private key (either from localStorage or newly generated)
@@ -266,16 +304,8 @@ export default function RecoveryKeyResetModal({
             JSON.stringify(encryptedLocalData)
           );
         }
-      } else {
-        // MyVault: Store the key encrypted with the new master password
-        // This allows unlocking with the new master password to retrieve the actual key
-        const keyStorageKey = `vaultKeyEncrypted_${vaultId}`;
-        const encryptedKeyWithPassword = await encryptVaultKeyWithRecoveryKey(
-          keyHex,
-          newMasterPasswordKey // Use master password key to encrypt the key
-        );
-        localStorage.setItem(keyStorageKey, JSON.stringify(encryptedKeyWithPassword));
       }
+      // Note: MyVault keys are already stored in localStorage and on server above (lines 104-121 and 265-293)
 
       // Send recovery key via email (call API route)
       try {
