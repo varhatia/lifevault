@@ -95,7 +95,8 @@ export default function RecoveryKeyResetModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          newRecoveryKeyEncryptedVaultKey: JSON.stringify(encryptedVaultKey),
+          // API expects this field name: newRecoveryKeyEncryptedKey
+          newRecoveryKeyEncryptedKey: JSON.stringify(encryptedVaultKey),
         }),
       });
 
@@ -116,13 +117,31 @@ export default function RecoveryKeyResetModal({
       localStorage.setItem(verifierKey, JSON.stringify(verifierPayload));
 
       // Store the vault key encrypted with the new master password
-      // This allows unlocking with the new master password to retrieve the actual vault key
-      const vaultKeyStorageKey = `vaultKeyEncrypted_${vaultId}`;
-      const encryptedVaultKeyWithPassword = await encryptVaultKeyWithRecoveryKey(
-        vaultKeyHex,
-        newMasterPasswordKey // Use master password key to encrypt the vault key
+      // This allows unlocking with the new master password to retrieve the actual vault key.
+      // NOTE: MyVault unlock flow expects a JSON object with { keyHex } encrypted via encryptTextData,
+      // then stored at `my_vault_${vaultId}` and later decrypted with decryptTextData.
+      const vaultKeyStorageKey = `my_vault_${vaultId}`;
+      const encryptedVaultKeyWithPassword = await encryptTextData(
+        { keyHex: vaultKeyHex },
+        newMasterPasswordKey
       );
       localStorage.setItem(vaultKeyStorageKey, JSON.stringify(encryptedVaultKeyWithPassword));
+
+      // Store verifier, master password-encrypted vault key, and recovery key encrypted vault key on server for cross-device access
+      try {
+        await fetch(`/api/vaults/my/${vaultId}/keys`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            masterPasswordVerifier: JSON.stringify(verifierPayload),
+            masterPasswordEncryptedVaultKey: JSON.stringify(encryptedVaultKeyWithPassword),
+            recoveryKeyEncryptedVaultKey: JSON.stringify(encryptedVaultKey),
+          }),
+        });
+      } catch (serverError) {
+        console.error("Failed to store vault keys on server:", serverError);
+        // Don't fail the flow if server storage fails
+      }
 
       // Send recovery key via email (call API route)
       try {

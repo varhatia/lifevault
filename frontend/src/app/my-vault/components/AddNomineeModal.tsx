@@ -28,6 +28,7 @@ type AddNomineeModalProps = {
   vaultId?: string; // Vault ID for this nominee
   vaultName?: string; // Vault name for display
   getMasterPassword: () => Promise<string | null>; // Function to get master password for key export
+  getVaultKeyHex?: () => Promise<string | null>; // Optional: Function to get vault key hex directly
 };
 
 export default function AddNomineeModal({
@@ -38,6 +39,7 @@ export default function AddNomineeModal({
   vaultId,
   vaultName,
   getMasterPassword,
+  getVaultKeyHex,
 }: AddNomineeModalProps) {
   const [nominees, setNominees] = useState<Nominee[]>([]);
   const [loading, setLoading] = useState(false);
@@ -139,11 +141,6 @@ export default function AddNomineeModal({
   };
 
   const handleRegenerateKey = async (nomineeId: string) => {
-    if (!vaultKey) {
-      alert("Vault key not initialized. Please unlock your vault first.");
-      return;
-    }
-
     const password = prompt("Enter encryption password for the nominee key:");
     if (!password || password.trim() === "") {
       return;
@@ -153,22 +150,37 @@ export default function AddNomineeModal({
       setRegeneratingNomineeId(nomineeId);
       setError(null);
 
-      // Get master password to derive an extractable key
-      const masterPassword = await getMasterPassword();
-      if (!masterPassword) {
-        setError("Master password is required to regenerate nominee keys.");
-        return;
-      }
-
-      // Derive a new extractable key from the same password
-      const extractableKey = await deriveKeyFromPassword(masterPassword, true);
+      // Get vault key hex - prefer callback if available, otherwise derive from master password
+      let vaultKeyHex: string;
       
-      // Export vault key as hex string
-      const exportedKey = await crypto.subtle.exportKey("raw", extractableKey);
-      const keyArray = new Uint8Array(exportedKey);
-      const vaultKeyHex = Array.from(keyArray)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      if (getVaultKeyHex) {
+        const hex = await getVaultKeyHex();
+        if (hex) {
+          vaultKeyHex = hex;
+        } else {
+          throw new Error("Failed to get vault key. Please unlock your vault first.");
+        }
+      } else if (vaultKey) {
+        // Export from CryptoKey if available
+        const exportedKey = await crypto.subtle.exportKey("raw", vaultKey);
+        const keyArray = new Uint8Array(exportedKey);
+        vaultKeyHex = Array.from(keyArray)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      } else {
+        // Fallback: derive from master password
+        const masterPassword = await getMasterPassword();
+        if (!masterPassword) {
+          setError("Master password is required to regenerate nominee keys.");
+          return;
+        }
+        const extractableKey = await deriveKeyFromPassword(masterPassword, true);
+        const exportedKey = await crypto.subtle.exportKey("raw", extractableKey);
+        const keyArray = new Uint8Array(exportedKey);
+        vaultKeyHex = Array.from(keyArray)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
 
       // Split key using Shamir Secret Sharing (2-of-3)
       const shares = splitSecretTwoOfThree(vaultKeyHex);
@@ -259,11 +271,6 @@ export default function AddNomineeModal({
       return;
     }
 
-    if (!vaultKey) {
-      setError("Vault key not initialized. Please unlock your vault first.");
-      return;
-    }
-
     if (!vaultId) {
       setError("Vault ID is required");
       return;
@@ -273,23 +280,37 @@ export default function AddNomineeModal({
       setLoading(true);
       setError(null);
 
-      // Get master password to derive an extractable key
-      const masterPassword = await getMasterPassword();
-      if (!masterPassword) {
-        setError("Master password is required to add a nominee.");
-        return;
-      }
-
-      // Derive a new extractable key from the same password
-      // This allows us to export it for nominee key splitting
-      const extractableKey = await deriveKeyFromPassword(masterPassword, true);
+      // Get vault key hex - prefer callback if available, otherwise derive from master password
+      let vaultKeyHex: string;
       
-      // Export vault key as hex string
-      const exportedKey = await crypto.subtle.exportKey("raw", extractableKey);
-      const keyArray = new Uint8Array(exportedKey);
-      const vaultKeyHex = Array.from(keyArray)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      if (getVaultKeyHex) {
+        const hex = await getVaultKeyHex();
+        if (hex) {
+          vaultKeyHex = hex;
+        } else {
+          throw new Error("Failed to get vault key. Please unlock your vault first.");
+        }
+      } else if (vaultKey) {
+        // Export from CryptoKey if available
+        const exportedKey = await crypto.subtle.exportKey("raw", vaultKey);
+        const keyArray = new Uint8Array(exportedKey);
+        vaultKeyHex = Array.from(keyArray)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      } else {
+        // Fallback: derive from master password
+        const masterPassword = await getMasterPassword();
+        if (!masterPassword) {
+          setError("Master password is required to add a nominee.");
+          return;
+        }
+        const extractableKey = await deriveKeyFromPassword(masterPassword, true);
+        const exportedKey = await crypto.subtle.exportKey("raw", extractableKey);
+        const keyArray = new Uint8Array(exportedKey);
+        vaultKeyHex = Array.from(keyArray)
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
 
       // Split key using Shamir Secret Sharing (2-of-3)
       const shares = splitSecretTwoOfThree(vaultKeyHex);

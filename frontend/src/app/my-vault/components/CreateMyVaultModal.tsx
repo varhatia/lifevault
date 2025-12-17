@@ -113,7 +113,7 @@ export default function CreateMyVaultModal({
       const newVaultId = data.vault.id;
       setVaultId(newVaultId);
 
-      // Store vault key and recovery key encrypted vault key locally
+      // Store vault key and recovery key encrypted vault key locally and on server
       if (typeof window !== "undefined") {
         // Store vault key encrypted with master password
         const verifierKey = await deriveKeyFromPassword(masterPassword, false);
@@ -138,6 +138,22 @@ export default function CreateMyVaultModal({
           `recoveryKeyEncryptedVaultKey_${newVaultId}`,
           JSON.stringify(encryptedVaultKey)
         );
+
+        // Store verifier, master password-encrypted vault key, and recovery key encrypted vault key on server for cross-device access
+        try {
+          await fetch(`/api/vaults/my/${newVaultId}/keys`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              masterPasswordVerifier: JSON.stringify(verifierPayload),
+              masterPasswordEncryptedVaultKey: JSON.stringify(encryptedVaultKeyData),
+              recoveryKeyEncryptedVaultKey: JSON.stringify(encryptedVaultKey),
+            }),
+          });
+        } catch (serverError) {
+          console.error("Failed to store vault keys on server:", serverError);
+          // Don't fail setup if server storage fails - localStorage is still available
+        }
       }
 
       // Send recovery key via email (via API route)

@@ -10,11 +10,14 @@ import {
   decryptTextData,
   importRecoveryKey,
   decryptVaultKeyWithRecoveryKey,
+  importAesKeyFromHex,
 } from "@/lib/crypto";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AddItemModal from "@/components/vaults/AddItemModal";
 import CreateMyVaultModal from "./components/CreateMyVaultModal";
-import { Download, Trash2 } from "lucide-react";
+import AddNomineeModal from "./components/AddNomineeModal";
+import { Download, Trash2, Users } from "lucide-react";
+import RecoveryKeyResetModal from "./components/RecoveryKeyResetModal";
 
 type MyVault = {
   id: string;
@@ -68,6 +71,10 @@ export default function MyVaultPage() {
   const [unlocking, setUnlocking] = useState(false);
   const [useRecoveryKey, setUseRecoveryKey] = useState(false);
   const [vaultKeys, setVaultKeys] = useState<Map<string, VaultKey>>(new Map());
+  const [nomineeModalVaultKey, setNomineeModalVaultKey] = useState<CryptoKey | null>(null);
+  const [showRecoveryResetModal, setShowRecoveryResetModal] = useState(false);
+  const [recoveryResetVault, setRecoveryResetVault] = useState<{ id: string; name: string; keyHex: string } | null>(null);
+  const [showNomineeModal, setShowNomineeModal] = useState(false);
 
   // Check authentication
   useEffect(() => {
@@ -130,10 +137,38 @@ export default function MyVaultPage() {
       // Derive key from master password
       const verifierKey = await deriveKeyFromPassword(masterPassword, false);
 
-      // Check vault-specific verifier
+      // Check vault-specific verifier (try localStorage first, then server)
       const verifierKeyStorage = `vaultVerifier_${vault.id}`;
-      const verifierRaw = localStorage.getItem(verifierKeyStorage);
+      let verifierRaw = localStorage.getItem(verifierKeyStorage);
+      let encryptedKeyStr = localStorage.getItem(`my_vault_${vault.id}`);
       
+      // If not in localStorage (cross-device scenario), fetch from server
+      if (!verifierRaw || !encryptedKeyStr) {
+        try {
+          const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+          if (keysRes.ok) {
+            const keysData = await keysRes.json();
+            if (keysData.masterPasswordVerifier) {
+              verifierRaw = keysData.masterPasswordVerifier;
+              // Sync to localStorage for faster future access
+              if (typeof window !== "undefined" && verifierRaw) {
+                localStorage.setItem(verifierKeyStorage, verifierRaw);
+              }
+            }
+            if (keysData.masterPasswordEncryptedVaultKey) {
+              encryptedKeyStr = keysData.masterPasswordEncryptedVaultKey;
+              // Sync to localStorage for faster future access
+              if (typeof window !== "undefined" && encryptedKeyStr) {
+                localStorage.setItem(`my_vault_${vault.id}`, encryptedKeyStr);
+              }
+            }
+          }
+        } catch (serverError) {
+          console.error("Failed to fetch vault keys from server:", serverError);
+        }
+      }
+      
+      // Verify password using verifier
       if (verifierRaw) {
         try {
           const payload = JSON.parse(verifierRaw);
@@ -146,10 +181,11 @@ export default function MyVaultPage() {
         } catch (e) {
           throw new Error("Invalid password for this vault");
         }
+      } else {
+        throw new Error("Vault verifier not found. Please recreate the vault or use recovery key.");
       }
 
-      // Get encrypted vault key from localStorage
-      const encryptedKeyStr = localStorage.getItem(`my_vault_${vault.id}`);
+      // Get encrypted vault key from localStorage or server
       if (!encryptedKeyStr) {
         throw new Error("Vault key not found. Please recreate the vault or use recovery key.");
       }
@@ -164,6 +200,11 @@ export default function MyVaultPage() {
         next.set(vault.id, { vaultId: vault.id, keyHex });
         return next;
       });
+
+      // Sync encrypted key to localStorage if it wasn't there (cross-device sync)
+      if (typeof window !== "undefined" && !localStorage.getItem(`my_vault_${vault.id}`)) {
+        localStorage.setItem(`my_vault_${vault.id}`, encryptedKeyStr);
+      }
 
       // Select the vault
       setSelectedVault(vault);
@@ -185,8 +226,28 @@ export default function MyVaultPage() {
       // Import recovery key
       const recoveryKeyCrypto = await importRecoveryKey(recoveryKeyBase64);
 
-      // Get recovery key encrypted vault key from localStorage
-      const encryptedVaultKeyStr = localStorage.getItem(`recoveryKeyEncryptedVaultKey_${vault.id}`);
+      // Get recovery key encrypted vault key (try localStorage first, then server)
+      let encryptedVaultKeyStr = localStorage.getItem(`recoveryKeyEncryptedVaultKey_${vault.id}`);
+      
+      // If not in localStorage (cross-device scenario), fetch from server
+      if (!encryptedVaultKeyStr) {
+        try {
+          const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+          if (keysRes.ok) {
+            const keysData = await keysRes.json();
+            if (keysData.recoveryKeyEncryptedVaultKey) {
+              encryptedVaultKeyStr = keysData.recoveryKeyEncryptedVaultKey;
+              // Sync to localStorage for faster future access
+              if (typeof window !== "undefined" && encryptedVaultKeyStr) {
+                localStorage.setItem(`recoveryKeyEncryptedVaultKey_${vault.id}`, encryptedVaultKeyStr);
+              }
+            }
+          }
+        } catch (serverError) {
+          console.error("Failed to fetch recovery key from server:", serverError);
+        }
+      }
+      
       if (!encryptedVaultKeyStr) {
         throw new Error("Recovery key encrypted vault key not found. Please use master password or contact support.");
       }
@@ -194,15 +255,14 @@ export default function MyVaultPage() {
       const encryptedVaultKey = JSON.parse(encryptedVaultKeyStr);
       const keyHex = await decryptVaultKeyWithRecoveryKey(encryptedVaultKey, recoveryKeyCrypto);
 
-      // Store in memory
-      setVaultKeys((prev) => {
-        const next = new Map(prev);
-        next.set(vault.id, { vaultId: vault.id, keyHex });
-        return next;
+      // Instead of directly unlocking, trigger recovery key reset workflow
+      // This ensures security by forcing password reset after recovery key usage
+      setRecoveryResetVault({
+        id: vault.id,
+        name: vault.name,
+        keyHex,
       });
-
-      // Select the vault
-      setSelectedVault(vault);
+      setShowRecoveryResetModal(true);
       setShowUnlockModal(false);
       setUnlockPassword("");
       setUseRecoveryKey(false);
@@ -242,6 +302,30 @@ export default function MyVaultPage() {
       setUnlockError(null);
       setUseRecoveryKey(false);
     }
+  };
+
+  const handleRecoveryResetSuccess = (newKeyHex: string) => {
+    if (!recoveryResetVault) return;
+
+    // Store key in memory for the reset vault
+    setVaultKeys((prev) => {
+      const next = new Map(prev);
+      next.set(recoveryResetVault.id, {
+        vaultId: recoveryResetVault.id,
+        keyHex: newKeyHex,
+      });
+      return next;
+    });
+
+    // Select the vault after successful reset
+    const vault = vaults.find((v) => v.id === recoveryResetVault.id);
+    if (vault) {
+      setSelectedVault(vault);
+    }
+
+    // Close reset modal
+    setShowRecoveryResetModal(false);
+    setRecoveryResetVault(null);
   };
 
   const handleFileUpload = async (file: File, category: string, title: string) => {
@@ -501,6 +585,20 @@ export default function MyVaultPage() {
         </div>
       )}
 
+      {recoveryResetVault && (
+        <RecoveryKeyResetModal
+          isOpen={showRecoveryResetModal}
+          onClose={() => {
+            setShowRecoveryResetModal(false);
+            setRecoveryResetVault(null);
+          }}
+          vaultId={recoveryResetVault.id}
+          vaultName={recoveryResetVault.name}
+          currentVaultKeyHex={recoveryResetVault.keyHex}
+          onSuccess={handleRecoveryResetSuccess}
+        />
+      )}
+
       {/* Create Vault Modal */}
       {showCreateModal && (
         <CreateMyVaultModal
@@ -605,14 +703,25 @@ export default function MyVaultPage() {
             <div className="flex items-center justify-between border-t border-slate-800 pt-4">
               <div>
                 <h2 className="text-lg font-semibold text-white">{selectedVault.name}</h2>
-                <p className="text-xs text-slate-400 mt-1">Items in this vault</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Items and nominee access for this vault
+                </p>
               </div>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
-              >
-                + Add item
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowNomineeModal(true)}
+                  className="flex items-center gap-1 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700"
+                >
+                  <Users className="w-3 h-3" />
+                  Nominees
+                </button>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
+                >
+                  + Add item
+                </button>
+              </div>
             </div>
 
             {showUploadModal && (
@@ -623,6 +732,29 @@ export default function MyVaultPage() {
                 vaultType="my_vault"
                 vaultKey={null} // We'll handle encryption in handleFileUpload
                 onUpload={handleFileUpload}
+              />
+            )}
+
+            {showNomineeModal && (
+              <AddNomineeModal
+                isOpen={showNomineeModal}
+                onClose={() => setShowNomineeModal(false)}
+                onSuccess={() => {
+                  // Nominee modal handles its own list; nothing extra needed here for now
+                }}
+                vaultKey={nomineeModalVaultKey}
+                vaultId={selectedVault.id}
+                vaultName={selectedVault.name}
+                getMasterPassword={async () => {
+                  const pwd = prompt(
+                    `Enter your master password for "${selectedVault.name}" to manage nominees:`
+                  );
+                  return pwd && pwd.trim().length > 0 ? pwd.trim() : null;
+                }}
+                getVaultKeyHex={async () => {
+                  const vaultKeyData = vaultKeys.get(selectedVault.id);
+                  return vaultKeyData ? vaultKeyData.keyHex : null;
+                }}
               />
             )}
 

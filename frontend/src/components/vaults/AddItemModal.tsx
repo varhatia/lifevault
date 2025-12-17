@@ -55,8 +55,9 @@ export default function AddItemModal({
 
     if (vaultType === "my_vault") {
       // MyVault: Use callback pattern
-      if (!vaultKey || !onUpload) {
-        setError("Vault key missing or upload handler not provided");
+      // onUpload handler is required and will handle encryption internally
+      if (!onUpload) {
+        setError("Upload handler not provided");
         return;
       }
 
