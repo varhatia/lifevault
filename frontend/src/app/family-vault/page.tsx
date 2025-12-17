@@ -887,47 +887,87 @@ export default function FamilyVaultPage() {
           <div className="bg-slate-900 rounded-lg border border-slate-800 w-full max-w-md p-6">
             <h2 className="text-xl font-bold text-white mb-4">Unlock Family Vault</h2>
             <p className="text-sm text-slate-400 mb-4">
-              Enter your master password to unlock <strong>{vaultToUnlock.name}</strong>
+              {useRecoveryKey
+                ? <>Enter your recovery key to unlock <strong>{vaultToUnlock.name}</strong></>
+                : <>Enter your master password to unlock <strong>{vaultToUnlock.name}</strong></>}
             </p>
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setUseRecoveryKey(!useRecoveryKey);
-                  setUnlockError(null);
-                }}
-                className="text-sm text-brand-400 hover:text-brand-300"
-              >
-                {useRecoveryKey ? "Use Master Password" : "Use Recovery Key"}
-              </button>
-            </div>
             <form onSubmit={handleUnlockSubmit} className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseRecoveryKey(false);
+                    setUnlockPassword("");
+                    setRecoveryKey("");
+                    setUnlockError(null);
+                  }}
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                    !useRecoveryKey
+                      ? "bg-brand-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  Master Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseRecoveryKey(true);
+                    setUnlockPassword("");
+                    setRecoveryKey("");
+                    setUnlockError(null);
+                  }}
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                    useRecoveryKey
+                      ? "bg-brand-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  Recovery Key
+                </button>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   {useRecoveryKey ? "Recovery Key" : "Master Password"}
                 </label>
-                <input
-                  type={useRecoveryKey ? "text" : "password"}
-                  value={useRecoveryKey ? recoveryKey : unlockPassword}
-                  onChange={(e) => {
-                    if (useRecoveryKey) {
+                {useRecoveryKey ? (
+                  <textarea
+                    value={recoveryKey}
+                    onChange={(e) => {
                       setRecoveryKey(e.target.value);
-                    } else {
+                      setUnlockError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        handleUnlockSubmit();
+                      }
+                    }}
+                    placeholder="Paste your recovery key here"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-brand-500 resize-none h-24"
+                    autoFocus
+                    disabled={unlocking}
+                  />
+                ) : (
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(e) => {
                       setUnlockPassword(e.target.value);
-                    }
-                    setUnlockError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleUnlockSubmit();
-                    }
-                  }}
-                  placeholder={useRecoveryKey ? "Enter recovery key" : "Enter master password"}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
-                  autoFocus
-                  disabled={unlocking}
-                />
+                      setUnlockError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleUnlockSubmit();
+                      }
+                    }}
+                    placeholder="Enter master password"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                    autoFocus
+                    disabled={unlocking}
+                  />
+                )}
               </div>
               {unlockError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">

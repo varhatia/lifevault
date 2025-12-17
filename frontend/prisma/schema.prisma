@@ -12,8 +12,6 @@ model User {
   email                         String                 @unique(map: "ix_users_email") @db.VarChar(255)
   hashedPassword                String                 @map("hashed_password") @db.VarChar(255)
   fullName                      String?                @map("full_name") @db.VarChar(255)
-  phone                         String?                @db.VarChar(20)
-  dateOfBirth                   DateTime?              @map("date_of_birth") @db.Timestamptz(6)
   deviceBindingKey              String?                @map("device_binding_key") @db.VarChar(255)
   emailVerified                 Boolean                @default(false) @map("email_verified")
   emailVerificationToken        String?                @map("email_verification_token") @db.VarChar(255)

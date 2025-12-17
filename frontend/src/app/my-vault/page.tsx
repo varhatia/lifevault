@@ -2,7 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { encryptFile, deriveKeyFromPassword, decryptFile, encryptTextData, decryptTextData } from "@/lib/crypto";
+import { 
+  encryptFile, 
+  deriveKeyFromPassword, 
+  decryptFile, 
+  encryptTextData, 
+  decryptTextData,
+  importRecoveryKey,
+  decryptVaultKeyWithRecoveryKey,
+} from "@/lib/crypto";
 import { useAuth } from "@/lib/hooks/useAuth";
 import AddItemModal from "@/components/vaults/AddItemModal";
 import CreateMyVaultModal from "./components/CreateMyVaultModal";
@@ -58,6 +66,7 @@ export default function MyVaultPage() {
   const [unlockPassword, setUnlockPassword] = useState("");
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const [unlocking, setUnlocking] = useState(false);
+  const [useRecoveryKey, setUseRecoveryKey] = useState(false);
   const [vaultKeys, setVaultKeys] = useState<Map<string, VaultKey>>(new Map());
 
   // Check authentication
@@ -160,9 +169,46 @@ export default function MyVaultPage() {
       setSelectedVault(vault);
       setShowUnlockModal(false);
       setUnlockPassword("");
+      setUseRecoveryKey(false);
     } catch (error) {
       console.error("Error unlocking vault:", error);
       setUnlockError(error instanceof Error ? error.message : "Failed to unlock vault");
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  const handleUnlockWithRecoveryKey = async (vault: MyVault, recoveryKeyBase64: string) => {
+    setUnlocking(true);
+    setUnlockError(null);
+    try {
+      // Import recovery key
+      const recoveryKeyCrypto = await importRecoveryKey(recoveryKeyBase64);
+
+      // Get recovery key encrypted vault key from localStorage
+      const encryptedVaultKeyStr = localStorage.getItem(`recoveryKeyEncryptedVaultKey_${vault.id}`);
+      if (!encryptedVaultKeyStr) {
+        throw new Error("Recovery key encrypted vault key not found. Please use master password or contact support.");
+      }
+
+      const encryptedVaultKey = JSON.parse(encryptedVaultKeyStr);
+      const keyHex = await decryptVaultKeyWithRecoveryKey(encryptedVaultKey, recoveryKeyCrypto);
+
+      // Store in memory
+      setVaultKeys((prev) => {
+        const next = new Map(prev);
+        next.set(vault.id, { vaultId: vault.id, keyHex });
+        return next;
+      });
+
+      // Select the vault
+      setSelectedVault(vault);
+      setShowUnlockModal(false);
+      setUnlockPassword("");
+      setUseRecoveryKey(false);
+    } catch (error) {
+      console.error("Error unlocking vault with recovery key:", error);
+      setUnlockError(error instanceof Error ? error.message : "Invalid recovery key or vault key not found");
     } finally {
       setUnlocking(false);
     }
@@ -173,10 +219,15 @@ export default function MyVaultPage() {
     if (!vaultToUnlock) return;
     
     if (!unlockPassword) {
-      setUnlockError("Please enter your master password");
+      setUnlockError(useRecoveryKey ? "Please enter your recovery key" : "Please enter your master password");
       return;
     }
-    await handleUnlockVault(vaultToUnlock, unlockPassword);
+
+    if (useRecoveryKey) {
+      await handleUnlockWithRecoveryKey(vaultToUnlock, unlockPassword);
+    } else {
+      await handleUnlockVault(vaultToUnlock, unlockPassword);
+    }
   };
 
   const handleSelectVault = (vault: MyVault) => {
@@ -189,6 +240,7 @@ export default function MyVaultPage() {
       setShowUnlockModal(true);
       setUnlockPassword("");
       setUnlockError(null);
+      setUseRecoveryKey(false);
     }
   };
 
@@ -336,31 +388,85 @@ export default function MyVaultPage() {
           <div className="bg-slate-900 rounded-lg border border-slate-800 w-full max-w-md p-6">
             <h2 className="text-xl font-bold text-white mb-4">Unlock {vaultToUnlock.name}</h2>
             <p className="text-sm text-slate-400 mb-4">
-              Enter your master password to unlock this vault
+              {useRecoveryKey 
+                ? "Enter your recovery key to unlock this vault" 
+                : "Enter your master password to unlock this vault"}
             </p>
             <form onSubmit={handleUnlockSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Master Password
-                </label>
-                <input
-                  type="password"
-                  value={unlockPassword}
-                  onChange={(e) => {
-                    setUnlockPassword(e.target.value);
+              <div className="flex items-center gap-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseRecoveryKey(false);
+                    setUnlockPassword("");
                     setUnlockError(null);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleUnlockSubmit();
-                    }
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                    !useRecoveryKey
+                      ? "bg-brand-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  Master Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUseRecoveryKey(true);
+                    setUnlockPassword("");
+                    setUnlockError(null);
                   }}
-                  placeholder="Enter master password"
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
-                  autoFocus
-                  disabled={unlocking}
-                />
+                  className={`text-xs px-3 py-1 rounded-md transition-colors ${
+                    useRecoveryKey
+                      ? "bg-brand-600 text-white"
+                      : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  Recovery Key
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {useRecoveryKey ? "Recovery Key" : "Master Password"}
+                </label>
+                {useRecoveryKey ? (
+                  <textarea
+                    value={unlockPassword}
+                    onChange={(e) => {
+                      setUnlockPassword(e.target.value);
+                      setUnlockError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                        e.preventDefault();
+                        handleUnlockSubmit();
+                      }
+                    }}
+                    placeholder="Paste your recovery key here"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-brand-500 resize-none h-24"
+                    autoFocus
+                    disabled={unlocking}
+                  />
+                ) : (
+                  <input
+                    type="password"
+                    value={unlockPassword}
+                    onChange={(e) => {
+                      setUnlockPassword(e.target.value);
+                      setUnlockError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleUnlockSubmit();
+                      }
+                    }}
+                    placeholder="Enter master password"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                    autoFocus
+                    disabled={unlocking}
+                  />
+                )}
               </div>
               {unlockError && (
                 <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
@@ -375,6 +481,7 @@ export default function MyVaultPage() {
                     setVaultToUnlock(null);
                     setUnlockPassword("");
                     setUnlockError(null);
+                    setUseRecoveryKey(false);
                   }}
                   className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
                   disabled={unlocking}

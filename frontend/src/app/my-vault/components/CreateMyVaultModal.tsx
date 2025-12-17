@@ -123,6 +123,16 @@ export default function CreateMyVaultModal({
         );
         localStorage.setItem(`vaultVerifier_${newVaultId}`, JSON.stringify(verifierPayload));
 
+        // Store master password-encrypted vault key (needed for unlock)
+        const encryptedVaultKeyData = await encryptTextData(
+          { keyHex: vaultKeyHex },
+          verifierKey
+        );
+        localStorage.setItem(
+          `my_vault_${newVaultId}`,
+          JSON.stringify(encryptedVaultKeyData)
+        );
+
         // Store recovery key encrypted vault key in localStorage (for this vault)
         localStorage.setItem(
           `recoveryKeyEncryptedVaultKey_${newVaultId}`,
