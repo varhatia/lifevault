@@ -137,35 +137,39 @@ export default function MyVaultPage() {
       // Derive key from master password
       const verifierKey = await deriveKeyFromPassword(masterPassword, false);
 
-      // Check vault-specific verifier (try localStorage first, then server)
+      // ALWAYS fetch from server first to get the latest keys (after recovery key reset)
+      // Server keys are the source of truth - they're updated when password is reset
       const verifierKeyStorage = `vaultVerifier_${vault.id}`;
-      let verifierRaw = localStorage.getItem(verifierKeyStorage);
-      let encryptedKeyStr = localStorage.getItem(`my_vault_${vault.id}`);
+      const vaultKeyStorageKey = `my_vault_${vault.id}`;
+      let verifierRaw: string | null = null;
+      let encryptedKeyStr: string | null = null;
+      let keysFromServer = false;
       
-      // If not in localStorage (cross-device scenario), fetch from server
-      if (!verifierRaw || !encryptedKeyStr) {
-        try {
-          const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
-          if (keysRes.ok) {
-            const keysData = await keysRes.json();
-            if (keysData.masterPasswordVerifier) {
-              verifierRaw = keysData.masterPasswordVerifier;
-              // Sync to localStorage for faster future access
-              if (typeof window !== "undefined" && verifierRaw) {
-                localStorage.setItem(verifierKeyStorage, verifierRaw);
-              }
-            }
-            if (keysData.masterPasswordEncryptedVaultKey) {
-              encryptedKeyStr = keysData.masterPasswordEncryptedVaultKey;
-              // Sync to localStorage for faster future access
-              if (typeof window !== "undefined" && encryptedKeyStr) {
-                localStorage.setItem(`my_vault_${vault.id}`, encryptedKeyStr);
-              }
-            }
+      try {
+        const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+        if (keysRes.ok) {
+          const keysData = await keysRes.json();
+          // Prioritize server keys - they're always the latest (especially after password reset)
+          if (keysData.masterPasswordVerifier) {
+            verifierRaw = keysData.masterPasswordVerifier;
+            keysFromServer = true;
           }
-        } catch (serverError) {
-          console.error("Failed to fetch vault keys from server:", serverError);
+          if (keysData.masterPasswordEncryptedVaultKey) {
+            encryptedKeyStr = keysData.masterPasswordEncryptedVaultKey;
+            keysFromServer = true;
+          }
         }
+      } catch (serverError) {
+        console.error("Failed to fetch vault keys from server:", serverError);
+        // Fall back to localStorage if server fetch fails (for backwards compatibility)
+      }
+      
+      // If server didn't have keys, fall back to localStorage (for old vaults that haven't been reset)
+      if (!verifierRaw) {
+        verifierRaw = localStorage.getItem(verifierKeyStorage);
+      }
+      if (!encryptedKeyStr) {
+        encryptedKeyStr = localStorage.getItem(vaultKeyStorageKey);
       }
       
       // Verify password using verifier
@@ -185,7 +189,7 @@ export default function MyVaultPage() {
         throw new Error("Vault verifier not found. Please recreate the vault or use recovery key.");
       }
 
-      // Get encrypted vault key from localStorage or server
+      // Get encrypted vault key
       if (!encryptedKeyStr) {
         throw new Error("Vault key not found. Please recreate the vault or use recovery key.");
       }
@@ -201,9 +205,12 @@ export default function MyVaultPage() {
         return next;
       });
 
-      // Sync encrypted key to localStorage if it wasn't there (cross-device sync)
-      if (typeof window !== "undefined" && !localStorage.getItem(`my_vault_${vault.id}`)) {
-        localStorage.setItem(`my_vault_${vault.id}`, encryptedKeyStr);
+      // Always sync server keys to localStorage for faster future access
+      // This ensures localStorage is always up-to-date with server (especially after password reset)
+      if (typeof window !== "undefined" && keysFromServer && verifierRaw && encryptedKeyStr) {
+        // Update localStorage with the server keys we just used
+        localStorage.setItem(verifierKeyStorage, verifierRaw);
+        localStorage.setItem(vaultKeyStorageKey, encryptedKeyStr);
       }
 
       // Select the vault
@@ -226,34 +233,77 @@ export default function MyVaultPage() {
       // Import recovery key
       const recoveryKeyCrypto = await importRecoveryKey(recoveryKeyBase64);
 
-      // Get recovery key encrypted vault key (try localStorage first, then server)
-      let encryptedVaultKeyStr = localStorage.getItem(`recoveryKeyEncryptedVaultKey_${vault.id}`);
+      // ALWAYS fetch from server first to get the latest recovery key encrypted vault key
+      // Server keys are the source of truth - they're updated when recovery key is reset
+      const recoveryKeyStorageKey = `recoveryKeyEncryptedVaultKey_${vault.id}`;
+      let encryptedVaultKeyStr: string | null = null;
+      let keyFromServer = false;
       
-      // If not in localStorage (cross-device scenario), fetch from server
-      if (!encryptedVaultKeyStr) {
-        try {
-          const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
-          if (keysRes.ok) {
-            const keysData = await keysRes.json();
-            if (keysData.recoveryKeyEncryptedVaultKey) {
-              encryptedVaultKeyStr = keysData.recoveryKeyEncryptedVaultKey;
-              // Sync to localStorage for faster future access
-              if (typeof window !== "undefined" && encryptedVaultKeyStr) {
-                localStorage.setItem(`recoveryKeyEncryptedVaultKey_${vault.id}`, encryptedVaultKeyStr);
-              }
-            }
+      try {
+        const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+        if (keysRes.ok) {
+          const keysData = await keysRes.json();
+          // Prioritize server keys - they're always the latest (especially after recovery key reset)
+          if (keysData.recoveryKeyEncryptedVaultKey) {
+            encryptedVaultKeyStr = keysData.recoveryKeyEncryptedVaultKey;
+            keyFromServer = true;
           }
-        } catch (serverError) {
-          console.error("Failed to fetch recovery key from server:", serverError);
         }
+      } catch (serverError) {
+        console.error("Failed to fetch recovery key from server:", serverError);
+        // Fall back to localStorage if server fetch fails (for backwards compatibility)
+      }
+      
+      // If server didn't have recovery key, fall back to localStorage (for old vaults)
+      if (!encryptedVaultKeyStr) {
+        encryptedVaultKeyStr = localStorage.getItem(recoveryKeyStorageKey);
       }
       
       if (!encryptedVaultKeyStr) {
         throw new Error("Recovery key encrypted vault key not found. Please use master password or contact support.");
       }
 
-      const encryptedVaultKey = JSON.parse(encryptedVaultKeyStr);
-      const keyHex = await decryptVaultKeyWithRecoveryKey(encryptedVaultKey, recoveryKeyCrypto);
+      // Try to decrypt with the recovery key
+      let encryptedVaultKey;
+      let keyHex: string;
+      try {
+        encryptedVaultKey = JSON.parse(encryptedVaultKeyStr);
+        keyHex = await decryptVaultKeyWithRecoveryKey(encryptedVaultKey, recoveryKeyCrypto);
+      } catch (decryptError) {
+        // Decryption failed - might be old recovery key after reset
+        // If we got it from localStorage, clear it and try server again
+        if (!keyFromServer) {
+          console.warn("Failed to decrypt with recovery key (might be old key), clearing localStorage and trying server:", decryptError);
+          localStorage.removeItem(recoveryKeyStorageKey);
+          
+          // Try server one more time
+          try {
+            const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+            if (keysRes.ok) {
+              const keysData = await keysRes.json();
+              if (keysData.recoveryKeyEncryptedVaultKey) {
+                encryptedVaultKey = JSON.parse(keysData.recoveryKeyEncryptedVaultKey);
+                keyHex = await decryptVaultKeyWithRecoveryKey(encryptedVaultKey, recoveryKeyCrypto);
+                keyFromServer = true;
+              } else {
+                throw decryptError; // Re-throw original error
+              }
+            } else {
+              throw decryptError; // Re-throw original error
+            }
+          } catch (retryError) {
+            throw new Error("Invalid recovery key or recovery key encrypted vault key not found. Please verify your recovery key is correct.");
+          }
+        } else {
+          // Already tried server, so the recovery key is wrong
+          throw new Error("Invalid recovery key. Please verify your recovery key is correct.");
+        }
+      }
+
+      // Sync recovery key encrypted vault key to localStorage if we got it from server
+      if (typeof window !== "undefined" && keyFromServer && encryptedVaultKeyStr) {
+        localStorage.setItem(recoveryKeyStorageKey, encryptedVaultKeyStr);
+      }
 
       // Instead of directly unlocking, trigger recovery key reset workflow
       // This ensures security by forcing password reset after recovery key usage

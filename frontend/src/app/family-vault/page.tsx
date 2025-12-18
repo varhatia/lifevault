@@ -240,10 +240,9 @@ export default function FamilyVaultPage() {
       const smkKey = await deriveKeyFromPassword(masterPassword);
 
       // Check for vault-specific verifier (like MyVault)
+      // Note: For Family Vault, the real password check is by decrypting private key from server
+      // The verifier is just a convenience check - if it fails, we still try server decryption
       const verifierKey = `familyVaultVerifier_${vault.id}`;
-      
-      // Try to verify password using verifier if it exists
-      // But don't fail immediately - we'll also check by trying to decrypt the private key
       let verifierCheckPassed = false;
       const verifierRaw = localStorage.getItem(verifierKey);
       
@@ -252,24 +251,26 @@ export default function FamilyVaultPage() {
           const payload = JSON.parse(verifierRaw);
           const { decryptTextData } = await import("@/lib/crypto");
           const data = await decryptTextData(payload, smkKey);
-          if (data && data.verifier === "lifevault-v1") {
+          if (data && data.verifier === "lifevault-v1" && data.vaultId === vault.id) {
             verifierCheckPassed = true;
           } else {
-            console.warn("Verifier mismatch:", { 
+            // Verifier doesn't match - might be old password after reset
+            // Clear it and rely on server decryption (which is the real check)
+            console.warn("Verifier mismatch - clearing stale verifier:", { 
               hasData: !!data, 
               verifier: data?.verifier,
               expected: "lifevault-v1",
               vaultId: data?.vaultId,
               expectedVaultId: vault.id
             });
+            localStorage.removeItem(verifierKey);
           }
         } catch (e) {
-          console.warn("Verifier check failed (will try private key decryption):", e);
-          // Continue to try private key decryption - that's the real test
+          // Verifier decryption failed - might be old password
+          // Clear it and rely on server decryption
+          console.warn("Verifier check failed - clearing stale verifier:", e);
+          localStorage.removeItem(verifierKey);
         }
-      } else {
-        // No verifier yet for this vault - create one after successful unlock
-        // (we'll create it after we verify the password works by decrypting private key)
       }
 
       // Get current user email
@@ -296,11 +297,15 @@ export default function FamilyVaultPage() {
         throw new Error("You need to accept the invitation and set your master password first. Please check your email for the invitation link.");
       }
 
-      // Try to get private key from localStorage first (faster)
+      // ALWAYS fetch from server first to get the latest encrypted private key
+      // Server keys are the source of truth - they're updated when password is reset via recovery key
+      // This ensures we use the latest password after recovery key reset
       let stored = localStorage.getItem(`family_vault_${vault.id}`);
       let privateKey: string | null = null;
       let storedSMKHex: string | null = null;
+      let keysFromServer = false;
 
+      // Try localStorage first (faster), but validate it works
       if (stored) {
         try {
           const encryptedData = JSON.parse(stored);
@@ -309,12 +314,16 @@ export default function FamilyVaultPage() {
           privateKey = decryptedData.privateKey;
           storedSMKHex = decryptedData.smkHex;
         } catch (e) {
-          console.warn("Failed to decrypt localStorage data, will fetch from server:", e);
-          stored = null; // Fall back to server
+          // localStorage decryption failed - might be old password after reset
+          // Clear it and fetch from server (which has the latest keys)
+          console.warn("Failed to decrypt localStorage data (might be old password), fetching from server:", e);
+          localStorage.removeItem(`family_vault_${vault.id}`);
+          stored = null;
         }
       }
 
-      // If not in localStorage, fetch encrypted private key from server
+      // If not in localStorage or decryption failed, fetch encrypted private key from server
+      // Server always has the latest keys (updated after recovery key reset)
       if (!privateKey && currentUserMember.encryptedPrivateKey) {
         try {
           const encryptedPrivateKeyData = JSON.parse(currentUserMember.encryptedPrivateKey);
@@ -342,8 +351,10 @@ export default function FamilyVaultPage() {
           }
           
           storedSMKHex = decryptedSMK;
+          keysFromServer = true; // Mark that we got keys from server
 
           // Store in localStorage for faster access next time
+          // This ensures localStorage is updated with latest keys after password reset
           const { encryptTextData } = await import("@/lib/crypto");
           const encryptedSMKLocal = await encryptTextData(
             { smkHex: storedSMKHex, privateKey },
@@ -369,19 +380,18 @@ export default function FamilyVaultPage() {
       }
 
       // If we got here, the password is correct (we successfully decrypted the private key)
-      // Create/update verifier if it doesn't exist or didn't pass
-      if (!verifierCheckPassed) {
-        try {
-          const { encryptTextData } = await import("@/lib/crypto");
-          const verifierPayload = await encryptTextData(
-            { verifier: "lifevault-v1", vaultId: vault.id },
-            smkKey
-          );
-          localStorage.setItem(verifierKey, JSON.stringify(verifierPayload));
-        } catch (e) {
-          console.error("Failed to create/update verifier:", e);
-          // Don't throw - verifier is not critical for unlock
-        }
+      // Always update verifier with latest password (especially if we got keys from server after reset)
+      // This ensures verifier matches the current password
+      try {
+        const { encryptTextData } = await import("@/lib/crypto");
+        const verifierPayload = await encryptTextData(
+          { verifier: "lifevault-v1", vaultId: vault.id },
+          smkKey
+        );
+        localStorage.setItem(verifierKey, JSON.stringify(verifierPayload));
+      } catch (e) {
+        console.error("Failed to create/update verifier:", e);
+        // Don't throw - verifier is not critical for unlock
       }
 
       const smkHex = storedSMKHex;
@@ -415,28 +425,32 @@ export default function FamilyVaultPage() {
         throw new Error("Recovery key is required");
       }
 
-      // Get recovery key encrypted SMK from localStorage (stored per vault)
+      // ALWAYS fetch from server first to get the latest recovery key encrypted SMK
+      // Server keys are the source of truth - they're updated when recovery key is reset
       // The key format is: recoveryKeyEncryptedKey_family_vault_${vaultId}
       const recoveryKeyStorageKey = `recoveryKeyEncryptedKey_family_vault_${vault.id}`;
-      let encryptedSMKStr: string | null = localStorage.getItem(recoveryKeyStorageKey);
+      let encryptedSMKStr: string | null = null;
+      let keyFromServer = false;
       
-      // If not in localStorage (e.g., same browser used by multiple users), fetch from server
-      // Server stores recovery key per-member, per-vault, ensuring proper isolation
-      if (!encryptedSMKStr) {
-        try {
-          const serverRes = await fetch(`/api/family/vaults/${vault.id}/recovery-key/get`);
-          if (serverRes.ok) {
-            const serverData = await serverRes.json();
-            const serverRecoveryKey = serverData.recoveryKeyEncryptedSMK;
-            if (serverRecoveryKey && typeof serverRecoveryKey === 'string') {
-              encryptedSMKStr = serverRecoveryKey;
-              // Sync back to localStorage for faster future access
-              localStorage.setItem(recoveryKeyStorageKey, serverRecoveryKey);
-            }
+      try {
+        const serverRes = await fetch(`/api/family/vaults/${vault.id}/recovery-key/get`);
+        if (serverRes.ok) {
+          const serverData = await serverRes.json();
+          const serverRecoveryKey = serverData.recoveryKeyEncryptedSMK;
+          // Prioritize server keys - they're always the latest (especially after recovery key reset)
+          if (serverRecoveryKey && typeof serverRecoveryKey === 'string') {
+            encryptedSMKStr = serverRecoveryKey;
+            keyFromServer = true;
           }
-        } catch (serverError) {
-          console.error("Failed to fetch recovery key from server:", serverError);
         }
+      } catch (serverError) {
+        console.error("Failed to fetch recovery key from server:", serverError);
+        // Fall back to localStorage if server fetch fails (for backwards compatibility)
+      }
+      
+      // If server didn't have recovery key, fall back to localStorage (for old vaults)
+      if (!encryptedSMKStr) {
+        encryptedSMKStr = localStorage.getItem(recoveryKeyStorageKey);
       }
       
       if (!encryptedSMKStr) {
@@ -482,8 +496,45 @@ export default function FamilyVaultPage() {
           throw new Error(`Invalid SMK format after decryption. Expected 64 hex characters, got ${smkHex?.length || 0}.`);
         }
       } catch (decryptError) {
-        console.error("Failed to decrypt SMK with recovery key:", decryptError);
-        throw new Error("Failed to decrypt vault with recovery key. Please verify your recovery key is correct.");
+        // Decryption failed - might be old recovery key after reset
+        // If we got it from localStorage, clear it and try server again
+        if (!keyFromServer) {
+          console.warn("Failed to decrypt with recovery key (might be old key), clearing localStorage and trying server:", decryptError);
+          localStorage.removeItem(recoveryKeyStorageKey);
+          
+          // Try server one more time
+          try {
+            const serverRes = await fetch(`/api/family/vaults/${vault.id}/recovery-key/get`);
+            if (serverRes.ok) {
+              const serverData = await serverRes.json();
+              const serverRecoveryKey = serverData.recoveryKeyEncryptedSMK;
+              if (serverRecoveryKey && typeof serverRecoveryKey === 'string') {
+                encryptedPayload = JSON.parse(serverRecoveryKey);
+                smkHex = await decryptVaultKeyWithRecoveryKey(encryptedPayload, recoveryKeyCrypto);
+                
+                // Validate decrypted SMK format
+                if (!smkHex || smkHex.length !== 64 || !/^[0-9a-f]{64}$/i.test(smkHex)) {
+                  throw new Error(`Invalid SMK format after decryption. Expected 64 hex characters, got ${smkHex?.length || 0}.`);
+                }
+                keyFromServer = true;
+              } else {
+                throw decryptError; // Re-throw original error
+              }
+            } else {
+              throw decryptError; // Re-throw original error
+            }
+          } catch (retryError) {
+            throw new Error("Invalid recovery key or recovery key encrypted SMK not found. Please verify your recovery key is correct.");
+          }
+        } else {
+          // Already tried server, so the recovery key is wrong
+          throw new Error("Invalid recovery key. Please verify your recovery key is correct.");
+        }
+      }
+
+      // Sync recovery key encrypted SMK to localStorage if we got it from server
+      if (typeof window !== "undefined" && keyFromServer && encryptedSMKStr) {
+        localStorage.setItem(recoveryKeyStorageKey, encryptedSMKStr);
       }
 
       // Instead of directly unlocking, trigger recovery key reset workflow
