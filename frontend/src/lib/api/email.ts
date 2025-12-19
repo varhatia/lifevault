@@ -10,7 +10,9 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@lifevault.app';
 const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'LifeVault';
 
 // Determine email service based on environment
-const USE_MAILHOG = process.env.USE_MAILHOG === 'true' || process.env.NODE_ENV !== 'production';
+// Priority: USE_MAILHOG env var > VERCEL_ENV check > NODE_ENV check
+const IS_PRODUCTION = process.env.VERCEL_ENV === 'production' || (process.env.NODE_ENV === 'production' && !process.env.VERCEL_ENV);
+const USE_MAILHOG = process.env.USE_MAILHOG === 'true' || (!IS_PRODUCTION && process.env.USE_MAILHOG !== 'false');
 const MAILHOG_HOST = process.env.MAILHOG_HOST || 'localhost';
 const MAILHOG_PORT = parseInt(process.env.MAILHOG_PORT || '1025', 10);
 
@@ -26,6 +28,7 @@ let transporter: nodemailer.Transporter | null = null;
 
 if (USE_MAILHOG) {
   // Development: Use MailHog
+  console.log(`[Email] Using MailHog at ${MAILHOG_HOST}:${MAILHOG_PORT}`);
   transporter = nodemailer.createTransport({
     host: MAILHOG_HOST,
     port: MAILHOG_PORT,
@@ -33,6 +36,7 @@ if (USE_MAILHOG) {
   });
 } else if (SMTP_HOST && SMTP_USER && SMTP_PASSWORD) {
   // Production: Use configured SMTP service
+  console.log(`[Email] Using SMTP service: ${SMTP_HOST}:${SMTP_PORT}`);
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: SMTP_PORT,
@@ -43,7 +47,36 @@ if (USE_MAILHOG) {
     },
   });
 } else {
-  console.warn('No email service configured. Emails will not be sent.');
+  console.warn('[Email] No email service configured. Emails will not be sent.');
+  console.warn('[Email] Configuration check:', {
+    USE_MAILHOG,
+    IS_PRODUCTION,
+    SMTP_HOST: SMTP_HOST ? 'set' : 'missing',
+    SMTP_USER: SMTP_USER ? 'set' : 'missing',
+    SMTP_PASSWORD: SMTP_PASSWORD ? 'set' : 'missing',
+    NODE_ENV: process.env.NODE_ENV,
+    VERCEL_ENV: process.env.VERCEL_ENV,
+  });
+}
+
+/**
+ * Get the base URL for the application
+ * Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL > localhost
+ */
+function getBaseUrl(): string {
+  // 1. Check if explicitly set
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+
+  // 2. Check Vercel's automatically provided URL
+  if (process.env.VERCEL_URL) {
+    // VERCEL_URL doesn't include protocol, so add https://
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  // 3. Fallback to localhost for local development
+  return 'http://localhost:3000';
 }
 
 /**
@@ -59,7 +92,7 @@ export async function sendVerificationEmail(
     return;
   }
 
-  const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/verify-email?token=${verificationToken}`;
+  const verificationUrl = `${getBaseUrl()}/auth/verify-email?token=${verificationToken}`;
   const displayName = fullName || email;
 
   const mailOptions = {
@@ -127,7 +160,7 @@ export async function sendPasswordResetEmail(
     return;
   }
 
-  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${resetToken}`;
+  const resetUrl = `${getBaseUrl()}/auth/reset-password?token=${resetToken}`;
   const displayName = fullName || email;
 
   const mailOptions = {
@@ -198,7 +231,7 @@ export async function sendNomineeNotificationEmail(
     return;
   }
 
-  const nomineeAccessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/nominee/access`;
+  const nomineeAccessUrl = `${getBaseUrl()}/nominee/access`;
 
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
@@ -323,8 +356,8 @@ export async function sendAccessRequestEmail(
     return;
   }
 
-  const approvalUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/nominee/access/approve?token=${approvalToken}`;
-  const rejectionUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/nominee/access/reject?token=${approvalToken}`;
+  const approvalUrl = `${getBaseUrl()}/api/nominee/access/approve?token=${approvalToken}`;
+  const rejectionUrl = `${getBaseUrl()}/api/nominee/access/reject?token=${approvalToken}`;
   const displayName = userName || userEmail;
 
   const mailOptions = {
@@ -414,7 +447,7 @@ export async function sendAccessDecisionEmail(
     return;
   }
 
-  const accessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/nominee-access`;
+  const accessUrl = `${getBaseUrl()}/nominee-access`;
 
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
@@ -508,7 +541,7 @@ export async function sendRecoveryKeyEmail(
     return;
   }
 
-  const accessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/my-vault`;
+  const accessUrl = `${getBaseUrl()}/my-vault`;
   const displayName = userName || userEmail;
 
   const mailOptions = {
@@ -619,7 +652,7 @@ export async function sendInactivityReminderEmail(
     return;
   }
 
-  const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/login`;
+  const loginUrl = `${getBaseUrl()}/auth/login`;
   const displayName = userName || userEmail;
 
   const mailOptions = {
@@ -701,7 +734,7 @@ export async function sendNomineeInactivityNotification(
     return;
   }
 
-  const accessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/nominee-access`;
+  const accessUrl = `${getBaseUrl()}/nominee-access`;
 
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
@@ -776,7 +809,7 @@ export async function sendFamilyVaultInviteEmail(
     return;
   }
 
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/family-vault/setup?token=${inviteToken}&vaultId=${vaultId || ''}`;
+  const inviteUrl = `${getBaseUrl()}/family-vault/setup?token=${inviteToken}&vaultId=${vaultId || ''}`;
 
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
