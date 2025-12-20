@@ -16,7 +16,17 @@ import { mkdir } from 'fs/promises';
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'lifevault-vaults';
 const AWS_REGION = process.env.AWS_REGION || process.env.AWS_S3_REGION || 'us-east-1';
-const AWS_ENDPOINT_URL = process.env.AWS_ENDPOINT_URL;
+const IS_PRODUCTION = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
+
+// Get AWS_ENDPOINT_URL, but ignore it if it points to localhost in production
+// This prevents issues where the variable might be set incorrectly in Vercel
+let AWS_ENDPOINT_URL = process.env.AWS_ENDPOINT_URL;
+if (IS_PRODUCTION && AWS_ENDPOINT_URL && (AWS_ENDPOINT_URL.includes('localhost') || AWS_ENDPOINT_URL.includes('127.0.0.1'))) {
+  console.error('[S3] Ignoring AWS_ENDPOINT_URL in production (points to localhost):', AWS_ENDPOINT_URL);
+  console.error('[S3] Using AWS S3 defaults instead. To fix: Remove AWS_ENDPOINT_URL from Vercel environment variables.');
+  AWS_ENDPOINT_URL = undefined; // Ignore localhost endpoint in production
+}
+
 const USE_LOCAL_STORAGE = process.env.USE_LOCAL_STORAGE === 'true';
 const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || join(process.cwd(), '.storage', 'encrypted-files');
 
@@ -26,7 +36,6 @@ const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || join(process.cwd(), '
 // 2. We have AWS credentials, AND
 // 3. Either AWS_ENDPOINT_URL is set (MinIO/custom) OR we're in production (use AWS S3)
 const HAS_AWS_CREDENTIALS = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
-const IS_PRODUCTION = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 const SHOULD_USE_S3 = !USE_LOCAL_STORAGE && HAS_AWS_CREDENTIALS && (AWS_ENDPOINT_URL || IS_PRODUCTION);
 
 // Initialize S3 client
@@ -44,23 +53,16 @@ if (SHOULD_USE_S3) {
 
     // Only set endpoint if explicitly provided (for MinIO or custom S3-compatible services)
     // AWS S3 doesn't need an endpoint - it uses the region to determine the endpoint
+    // Note: localhost endpoints are already filtered out above for production
     if (AWS_ENDPOINT_URL) {
       s3Config.endpoint = AWS_ENDPOINT_URL;
       s3Config.forcePathStyle = true; // Required for MinIO and some S3-compatible services
       
-      // Warn if using localhost (especially in production)
-      if (AWS_ENDPOINT_URL.includes('localhost') || AWS_ENDPOINT_URL.includes('127.0.0.1')) {
+      // Warn if using localhost in non-production (development/preview)
+      if (!IS_PRODUCTION && (AWS_ENDPOINT_URL.includes('localhost') || AWS_ENDPOINT_URL.includes('127.0.0.1'))) {
         const envInfo = process.env.VERCEL_ENV ? ` (Vercel: ${process.env.VERCEL_ENV})` : '';
-        if (IS_PRODUCTION) {
-          console.error('[S3] ERROR: AWS_ENDPOINT_URL points to localhost in production!');
-          console.error(`[S3] Current value: ${AWS_ENDPOINT_URL}${envInfo}`);
-          console.error('[S3] This will cause S3 uploads to fail. Remove AWS_ENDPOINT_URL from Vercel environment variables.');
-          console.error('[S3] Check all environment scopes: Production, Preview, and Development');
-        } else {
-          console.warn(`[S3] AWS_ENDPOINT_URL points to localhost${envInfo}: ${AWS_ENDPOINT_URL}`);
-          console.warn('[S3] This is fine for local development but will not work in production.');
-          console.warn('[S3] For production, remove AWS_ENDPOINT_URL to use AWS S3 defaults.');
-        }
+        console.warn(`[S3] AWS_ENDPOINT_URL points to localhost${envInfo}: ${AWS_ENDPOINT_URL}`);
+        console.warn('[S3] This is fine for local development but will not work in production.');
       }
     }
 
