@@ -48,15 +48,37 @@ if (SHOULD_USE_S3) {
       s3Config.endpoint = AWS_ENDPOINT_URL;
       s3Config.forcePathStyle = true; // Required for MinIO and some S3-compatible services
       
-      // Warn if using localhost in production
+      // Warn if using localhost (especially in production)
       if (AWS_ENDPOINT_URL.includes('localhost') || AWS_ENDPOINT_URL.includes('127.0.0.1')) {
-        console.warn('[S3] WARNING: AWS_ENDPOINT_URL points to localhost. This will not work in production!');
-        console.warn('[S3] For AWS S3, remove AWS_ENDPOINT_URL or set it to your AWS S3 endpoint.');
+        const envInfo = process.env.VERCEL_ENV ? ` (Vercel: ${process.env.VERCEL_ENV})` : '';
+        if (IS_PRODUCTION) {
+          console.error('[S3] ERROR: AWS_ENDPOINT_URL points to localhost in production!');
+          console.error(`[S3] Current value: ${AWS_ENDPOINT_URL}${envInfo}`);
+          console.error('[S3] This will cause S3 uploads to fail. Remove AWS_ENDPOINT_URL from Vercel environment variables.');
+          console.error('[S3] Check all environment scopes: Production, Preview, and Development');
+        } else {
+          console.warn(`[S3] AWS_ENDPOINT_URL points to localhost${envInfo}: ${AWS_ENDPOINT_URL}`);
+          console.warn('[S3] This is fine for local development but will not work in production.');
+          console.warn('[S3] For production, remove AWS_ENDPOINT_URL to use AWS S3 defaults.');
+        }
       }
     }
 
     s3Client = new S3Client(s3Config);
     console.log(`[S3] Initialized S3 client: ${AWS_ENDPOINT_URL ? `Custom endpoint: ${AWS_ENDPOINT_URL}` : `AWS S3 (region: ${AWS_REGION})`}`);
+    
+    // Debug: Log S3 configuration (without secrets) for troubleshooting
+    if (process.env.VERCEL_ENV || IS_PRODUCTION) {
+      console.log('[S3] Configuration:', {
+        hasEndpoint: !!AWS_ENDPOINT_URL,
+        endpoint: AWS_ENDPOINT_URL || 'not set (using AWS S3 defaults)',
+        region: AWS_REGION,
+        bucket: BUCKET_NAME,
+        hasCredentials: HAS_AWS_CREDENTIALS,
+        vercelEnv: process.env.VERCEL_ENV || 'not set',
+        nodeEnv: process.env.NODE_ENV || 'not set',
+      });
+    }
   } catch (error) {
     console.error('[S3] Failed to initialize S3 client:', error);
     console.warn('[S3] Falling back to local storage');
