@@ -15,7 +15,22 @@ import { join } from 'path';
 import { mkdir } from 'fs/promises';
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'lifevault-vaults';
-const AWS_REGION = process.env.AWS_REGION || process.env.AWS_S3_REGION || 'us-east-1';
+
+// Determine AWS region with detailed logging for debugging
+const AWS_REGION_ENV = process.env.AWS_REGION;
+const AWS_S3_REGION_ENV = process.env.AWS_S3_REGION;
+const AWS_REGION = AWS_REGION_ENV || AWS_S3_REGION_ENV || 'us-east-1';
+
+// Log region detection for debugging (only in production/Vercel)
+if (process.env.VERCEL_ENV || process.env.NODE_ENV === 'production') {
+  console.log('[S3] Region detection:', {
+    'process.env.AWS_REGION': AWS_REGION_ENV || 'not set',
+    'process.env.AWS_S3_REGION': AWS_S3_REGION_ENV || 'not set',
+    'Selected region': AWS_REGION,
+    'Source': AWS_REGION_ENV ? 'AWS_REGION' : (AWS_S3_REGION_ENV ? 'AWS_S3_REGION' : 'default (us-east-1)'),
+  });
+}
+
 const IS_PRODUCTION = process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production';
 
 // Get AWS_ENDPOINT_URL, but ignore it if it points to localhost in production
@@ -71,6 +86,18 @@ if (SHOULD_USE_S3) {
     
     // Debug: Log S3 configuration (without secrets) for troubleshooting
     if (process.env.VERCEL_ENV || IS_PRODUCTION) {
+      // Log all AWS-related environment variables (without exposing secrets)
+      const awsEnvVars: Record<string, string> = {};
+      Object.keys(process.env).forEach(key => {
+        if (key.startsWith('AWS_')) {
+          if (key.includes('SECRET') || key.includes('PASSWORD') || key.includes('KEY')) {
+            awsEnvVars[key] = process.env[key] ? '***set***' : 'not set';
+          } else {
+            awsEnvVars[key] = process.env[key] || 'not set';
+          }
+        }
+      });
+
       console.log('[S3] Configuration:', {
         hasEndpoint: !!AWS_ENDPOINT_URL,
         endpoint: AWS_ENDPOINT_URL || 'not set (using AWS S3 defaults)',
@@ -80,6 +107,7 @@ if (SHOULD_USE_S3) {
         vercelEnv: process.env.VERCEL_ENV || 'not set',
         nodeEnv: process.env.NODE_ENV || 'not set',
       });
+      console.log('[S3] AWS Environment Variables:', awsEnvVars);
     }
   } catch (error) {
     console.error('[S3] Failed to initialize S3 client:', error);
@@ -145,15 +173,25 @@ export async function uploadEncryptedFile(
     console.log(`[S3] Successfully uploaded: ${s3Key}`);
   } catch (error: any) {
     // If S3 fails, fallback to local storage
-    console.error('[S3] Upload failed:', {
-      error: error.message,
-      code: error.code,
+    const errorDetails = {
+      error: error?.message || String(error),
+      code: error?.code || 'unknown',
+      name: error?.name || 'Error',
       endpoint: AWS_ENDPOINT_URL || 'AWS S3 (default)',
       region: AWS_REGION,
       bucket: BUCKET_NAME,
       key: s3Key,
-    });
+      stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+    };
+    console.error('[S3] Upload failed:', errorDetails);
     console.warn('[S3] Falling back to local storage');
+    
+    // Re-throw with more context if it's a critical error (not just a connection issue)
+    if (error?.code === 'InvalidRequest' || error?.code === 'InvalidArgument') {
+      throw new Error(`S3 upload failed: ${error?.message || 'Invalid request'}. Check your S3 configuration.`);
+    }
+    
+    // For other errors, fallback to local storage
     const filePath = join(LOCAL_STORAGE_DIR, s3Key.replace(/\//g, '_'));
     await mkdir(LOCAL_STORAGE_DIR, { recursive: true });
     await fs.writeFile(filePath, buffer);

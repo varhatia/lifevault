@@ -107,8 +107,22 @@ export default function AddItemModal({
         });
 
         if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.error || "Failed to upload item");
+          let errorMessage = "Failed to upload item";
+          try {
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const errorData = await res.json();
+              errorMessage = errorData.error || errorData.message || errorMessage;
+            } else {
+              // Response is not JSON, try to get text
+              const errorText = await res.text();
+              errorMessage = errorText || `Server error (${res.status} ${res.statusText})`;
+            }
+          } catch (parseError) {
+            // If parsing fails, use status text
+            errorMessage = `Server error (${res.status} ${res.statusText})`;
+          }
+          throw new Error(errorMessage);
         }
 
         // Reset form

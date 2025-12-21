@@ -111,7 +111,16 @@ export async function POST(
       );
     }
     
-    const body = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (parseError) {
+      console.error('Failed to parse request body as JSON:', parseError);
+      return NextResponse.json(
+        { error: 'Invalid JSON in request body' },
+        { status: 400 }
+      );
+    }
     const { category, title, tags = [], encryptedBlob, iv, metadata } = body;
     
     // Validate required fields
