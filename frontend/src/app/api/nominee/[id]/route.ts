@@ -35,11 +35,67 @@ export async function DELETE(
       );
     }
 
+    // Get nominee details for logging before deletion
+    const nomineeDetails = await prisma.nominee.findFirst({
+      where: {
+        id: nomineeId,
+        userId: userId,
+      },
+      include: {
+        myVault: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        familyVault: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
     // Soft delete (set isActive to false)
     await prisma.nominee.update({
       where: { id: nomineeId },
       data: { isActive: false },
     });
+
+    // Log nominee deletion
+    if (nomineeDetails) {
+      try {
+        const now = new Date();
+        await prisma.activityLog.create({
+          data: {
+            userId,
+            vaultType: nomineeDetails.vaultType === 'family_vault' ? 'family_vault' : 'my_vault',
+            myVaultId: nomineeDetails.myVaultId,
+            familyVaultId: nomineeDetails.familyVaultId,
+            action: 'nominee_deleted',
+            description: `Nominee "${nomineeDetails.nomineeName}" removed from ${nomineeDetails.vaultType === 'family_vault' ? 'family vault' : 'my vault'}`,
+            ipAddress:
+              req.headers.get('x-forwarded-for') ||
+              req.headers.get('x-real-ip') ||
+              null,
+            userAgent: req.headers.get('user-agent') || null,
+            metadata: {
+              nomineeId: nomineeDetails.id,
+              nomineeName: nomineeDetails.nomineeName,
+              vaultName: nomineeDetails.vaultType === 'family_vault' && nomineeDetails.familyVault
+                ? nomineeDetails.familyVault.name
+                : nomineeDetails.vaultType === 'my_vault' && nomineeDetails.myVault
+                ? nomineeDetails.myVault.name
+                : null,
+            },
+            createdAt: now,
+          },
+        });
+      } catch (logError) {
+        console.error('Failed to log nominee deletion:', logError);
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -45,6 +45,8 @@ export async function POST(
       );
     }
 
+    const now = new Date();
+
     // Update user's recovery key encrypted vault key (stored per user, not per vault)
     // Note: In the current schema, this is stored at user level, but we may need to store per vault
     // For now, we'll update the user-level field
@@ -52,12 +54,36 @@ export async function POST(
       where: { id: userId },
       data: {
         recoveryKeyEncryptedVaultKey: newRecoveryKeyEncryptedKey,
-        recoveryKeyGeneratedAt: new Date(),
+        recoveryKeyGeneratedAt: now,
       },
     });
 
     // Invalidate all nominees for this vault (mark as inactive)
     await invalidateNomineesForVault('my_vault', vaultId, userId);
+
+    // Log recovery key reset activity
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vaultId,
+          action: 'myvault_recovery_key_reset',
+          description: 'My Vault recovery key reset and nominees invalidated',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            // No sensitive content
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault recovery reset activity:', logError);
+    }
 
     // Return success - vault re-encryption will happen in background
     return NextResponse.json({

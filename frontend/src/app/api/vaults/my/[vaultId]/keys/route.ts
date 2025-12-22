@@ -44,6 +44,32 @@ export async function PUT(
       );
     }
 
+    // Log vault keys fetch as a vault unlock attempt
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vault.id,
+          action: 'myvault_unlocked',
+          description: 'Vault keys fetched for unlock',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            hasVerifier: !!vault.masterPasswordVerifier,
+            hasRecoveryKey: !!vault.recoveryKeyEncryptedVaultKey,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault unlock activity:', logError);
+    }
+
     // Update vault with verifier and/or encrypted vault keys
     const updateData: any = {};
     if (masterPasswordVerifier !== undefined) {
@@ -110,6 +136,32 @@ export async function GET(
         { error: 'Vault not found or unauthorized' },
         { status: 404 }
       );
+    }
+
+    // Log vault unlock activity (keys fetched for unlock)
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vault.id,
+          action: 'myvault_unlocked',
+          description: 'Vault unlocked - keys fetched successfully',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            hasVerifier: !!vault.masterPasswordVerifier,
+            hasRecoveryKey: !!vault.recoveryKeyEncryptedVaultKey,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault unlock activity:', logError);
     }
 
     return NextResponse.json({

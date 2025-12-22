@@ -14,6 +14,7 @@ export default function UserMenu() {
   const pathname = usePathname();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -63,16 +64,41 @@ export default function UserMenu() {
   const displayName = user.fullName || user.email;
 
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="max-w-[160px] truncate text-slate-300">
-        {displayName}
-      </span>
+    <div className="relative flex items-center text-xs">
       <button
-        onClick={handleLogout}
-        className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
+        onClick={() => setMenuOpen((open) => !open)}
+        className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
       >
-        Logout
+        <span className="max-w-[140px] truncate">{displayName}</span>
+        <span className="text-slate-500">▾</span>
       </button>
+
+      {menuOpen && (
+        <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg">
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              router.push("/activity");
+            }}
+            className={`block w-full px-3 py-1 text-left text-[11px] ${
+              pathname === "/activity"
+                ? "bg-slate-800 text-white"
+                : "text-slate-200 hover:bg-slate-800"
+            }`}
+          >
+            Activity
+          </button>
+          <button
+            onClick={() => {
+              setMenuOpen(false);
+              handleLogout();
+            }}
+            className="block w-full px-3 py-1 text-left text-[11px] text-red-300 hover:bg-slate-800"
+          >
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   );
 }

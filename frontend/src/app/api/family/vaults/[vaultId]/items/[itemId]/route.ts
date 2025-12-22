@@ -37,11 +37,18 @@ export async function DELETE(
       );
     }
 
-    // Get item to delete
+    // Get item to delete (include metadata for logging)
     const item = await prisma.familyVaultItem.findFirst({
       where: {
         id: itemId,
         familyVaultId: vaultId,
+      },
+      select: {
+        id: true,
+        s3Key: true,
+        category: true,
+        title: true,
+        createdBy: true,
       },
     });
 
@@ -66,6 +73,37 @@ export async function DELETE(
     await prisma.familyVaultItem.delete({
       where: { id: itemId },
     });
+
+    // Log item deletion activity (for the user who deleted it)
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          familyMemberId: membership.id,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          vaultItemId: itemId,
+          action: 'item_deleted',
+          description: 'Family vault item deleted',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category: item.category,
+            title: item.title,
+            hadFile: !!item.s3Key,
+            deletedByRole: membership.role,
+            originalCreatorId: item.createdBy,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family vault item deletion activity:', logError);
+    }
 
     return NextResponse.json({
       success: true,

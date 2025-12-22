@@ -38,6 +38,34 @@ export async function GET(
       );
     }
 
+    // Log vault access/unlock activity (members endpoint is called during unlock)
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          familyMemberId: membership.id,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          action: 'familyvault_unlocked',
+          description: 'Family vault unlocked - member keys fetched',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            memberRole: membership.role,
+            hasEncryptedSMK: true,
+            hasEncryptedPrivateKey: true,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family vault unlock activity:', logError);
+    }
+
     // Get all members (include encryptedSharedMasterKey for current user to decrypt SMK)
     const members = await prisma.familyMember.findMany({
       where: {
@@ -253,6 +281,33 @@ export async function POST(
         },
       },
     });
+
+    // Log member added to family vault
+    try {
+      const now = new Date();
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          action: 'family_member_added',
+          description: 'Family vault member added',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            memberId: member.id,
+            memberEmail: member.user?.email ?? email ?? null,
+            memberRole: role,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family member add activity:', logError);
+    }
 
     // Send invite email if email provided
     if (email) {

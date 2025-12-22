@@ -462,6 +462,40 @@ export async function POST(req: NextRequest) {
       console.warn('Nominee key Part C stored but no delivery method available. User must manually deliver the key.');
     }
 
+    // Log nominee addition
+    try {
+      const now = new Date();
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: vaultType === 'family_vault' ? 'family_vault' : 'my_vault',
+          myVaultId: vaultType === 'my_vault' ? vaultId : null,
+          familyVaultId: vaultType === 'family_vault' ? vaultId : null,
+          action: 'nominee_added',
+          description: `Nominee "${nomineeName}" added to ${vaultType === 'family_vault' ? 'family vault' : 'my vault'}`,
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            nomineeId: nominee.id,
+            nomineeName,
+            nomineeEmail: nomineeEmail || null,
+            nomineePhone: nomineePhone || null,
+            vaultName: nominee.vaultType === 'family_vault' && nominee.familyVault
+              ? nominee.familyVault.name
+              : nominee.vaultType === 'my_vault' && nominee.myVault
+              ? nominee.myVault.name
+              : null,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee addition:', logError);
+    }
+
     return NextResponse.json(responseData, { status: 201 });
   } catch (error) {
     console.error('Error adding nominee:', error);

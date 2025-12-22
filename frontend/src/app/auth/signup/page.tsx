@@ -9,11 +9,14 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const fullPhone = phone ? `${countryCode}${phone}` : "";
 
   // Evaluate password strength in real-time
   const passwordStrength = useMemo(() => {
@@ -23,9 +26,9 @@ export default function SignupPage() {
     return evaluatePasswordStrength(password, {
       name: fullName,
       email,
-      phone,
+      phone: fullPhone,
     });
-  }, [password, fullName, email, phone]);
+  }, [password, fullName, email, fullPhone]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +48,13 @@ export default function SignupPage() {
 
     // Validate phone number format (if provided)
     if (phone) {
-      const phoneRegex = /^\+[1-9]\d{1,14}$/;
-      if (!phoneRegex.test(phone)) {
-        setError("Phone number must be in international format (e.g., +1234567890)");
+      const digitsOnly = phone.replace(/\D/g, "");
+      if (digitsOnly.length !== 10) {
+        setError("Phone number must be exactly 10 digits");
+        return;
+      }
+      if (!/^\d{10}$/.test(phone)) {
+        setError("Phone number should only contain digits");
         return;
       }
     }
@@ -97,7 +104,7 @@ export default function SignupPage() {
           email, 
           password, 
           fullName,
-          phone: phone || undefined,
+          phone: fullPhone || undefined,
           dateOfBirth: dateOfBirth || undefined,
         }),
       });
@@ -153,15 +160,32 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Phone Number</label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            placeholder="+1234567890"
-          />
-          <p className="text-[10px] text-slate-400 mt-1">International format with country code (optional)</p>
+          <label className="block text-slate-200">Phone Number (optional)</label>
+          <div className="flex gap-2">
+            <select
+              value={countryCode}
+              onChange={(e) => setCountryCode(e.target.value)}
+              className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs text-white focus:border-brand-500 focus:outline-none"
+            >
+              <option value="+1">🇺🇸 United States (+1)</option>
+              <option value="+44">🇬🇧 United Kingdom (+44)</option>
+              <option value="+91">🇮🇳 India (+91)</option>
+              <option value="+61">🇦🇺 Australia (+61)</option>
+              <option value="+65">🇸🇬 Singapore (+65)</option>
+              <option value="+971">🇦🇪 UAE (+971)</option>
+            </select>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              maxLength={10}
+              placeholder="10-digit phone"
+            />
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            We’ll use this for account recovery or notifications. Format: country code + 10-digit number.
+          </p>
         </div>
 
         <div className="space-y-1 text-xs">

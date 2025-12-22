@@ -55,13 +55,42 @@ export async function GET(req: NextRequest) {
     }
 
     // Approve the request
-    await prisma.nomineeAccessRequest.update({
+    const updated = await prisma.nomineeAccessRequest.update({
       where: { id: accessRequest.id },
       data: {
         status: 'approved',
         approvedAt: new Date(),
       },
     });
+
+    // Log approval in owner's activity log
+    try {
+      const now = new Date();
+      const nominee = accessRequest.nominee;
+      await (prisma as any).activityLog.create({
+        data: {
+          userId: accessRequest.userId,
+          vaultType: nominee?.vaultType || 'account',
+          myVaultId: nominee?.myVaultId || null,
+          familyVaultId: nominee?.familyVaultId || null,
+          action: 'nominee_access_approved',
+          description: 'Nominee access request approved',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            requestId: updated.id,
+            nomineeId: nominee?.id || null,
+            nomineeName: accessRequest.nomineeName,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee access approval:', logError);
+    }
 
     // Send notification to nominee
     if (accessRequest.nomineeEmail) {

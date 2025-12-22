@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { uploadEncryptedFile, generateS3Key } from '@/lib/api/s3';
 import { randomUUID } from 'crypto';
 import { getUserFromRequest } from '@/lib/api/auth';
@@ -146,6 +146,8 @@ export async function POST(
     await uploadEncryptedFile(encryptedBlob, s3Key);
     
     // Store only metadata in database (NO encrypted data in DB)
+    const now = new Date();
+
     const vaultItem = await prisma.vaultItem.create({
       data: {
         id: itemId,
@@ -158,6 +160,34 @@ export async function POST(
         encryptedData: Buffer.from(''), // Empty - data is in S3 only
       },
     });
+
+    // Log item upload activity (zero-knowledge: reference ids and metadata only)
+    try {
+      // Cast prisma to any here to avoid type mismatch if generated types are stale
+      // Runtime model name is activityLog, matching ActivityLog in schema
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vaultId,
+          vaultItemId: vaultItem.id,
+          action: 'item_uploaded',
+          description: 'Item uploaded to My Vault',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category,
+            hasFile: !!s3Key,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault item upload:', logError);
+    }
     
     return NextResponse.json({
       id: vaultItem.id,

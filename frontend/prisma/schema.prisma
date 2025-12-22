@@ -7,9 +7,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ActivityLog {
+  id             String      @id @default(uuid()) @db.Uuid
+  userId         String      @map("user_id") @db.Uuid
+  familyMemberId String?     @map("family_member_id") @db.Uuid
+  vaultType      String      @map("vault_type") @db.VarChar(20) // 'my_vault' | 'family_vault' | 'account'
+  myVaultId      String?     @map("my_vault_id") @db.Uuid
+  familyVaultId  String?     @map("family_vault_id") @db.Uuid
+  vaultItemId    String?     @map("vault_item_id") @db.Uuid
+  action         String      @db.VarChar(50)
+  description    String?     @db.Text
+  ipAddress      String?     @map("ip_address") @db.VarChar(45)
+  userAgent      String?     @map("user_agent")
+  metadata       Json?       @db.JsonB
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId, createdAt], map: "ix_activity_logs_user_id_created_at")
+  @@index([vaultType, createdAt], map: "ix_activity_logs_vault_type_created_at")
+  @@index([myVaultId, createdAt], map: "ix_activity_logs_my_vault_id_created_at")
+  @@index([familyVaultId, createdAt], map: "ix_activity_logs_family_vault_id_created_at")
+  @@map("activity_logs")
+}
+
 model User {
   id                            String                 @id @default(uuid()) @db.Uuid
   email                         String                 @unique(map: "ix_users_email") @db.VarChar(255)
+  phone                         String?                @unique(map: "ix_users_phone") @db.VarChar(50)
   hashedPassword                String                 @map("hashed_password") @db.VarChar(255)
   fullName                      String?                @map("full_name") @db.VarChar(255)
   deviceBindingKey              String?                @map("device_binding_key") @db.VarChar(255)
@@ -29,6 +52,8 @@ model User {
   lastLogin                     DateTime?              @map("last_login") @db.Timestamptz(6)
   recoveryKeyEncryptedVaultKey  String?                @map("recovery_key_encrypted_vault_key")
   recoveryKeyGeneratedAt        DateTime?              @map("recovery_key_generated_at") @db.Timestamptz(6)
+  passwordResetToken            String?                @map("password_reset_token") @db.VarChar(255)
+  passwordResetTokenExpires     DateTime?              @map("password_reset_token_expires") @db.Timestamptz(6)
   familyMemberships             FamilyMember[]
   familyVaultItemsCreated       FamilyVaultItem[]      @relation("FamilyVaultItemCreator")
   familyVaultItemsUpdated       FamilyVaultItem[]      @relation("FamilyVaultItemUpdater")

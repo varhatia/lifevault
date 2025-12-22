@@ -116,6 +116,34 @@ export async function GET(
       }
     }
 
+    // Log nominee download in owner's activity log
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId: session.userId,
+          vaultType,
+          myVaultId: vaultType === 'my_vault' ? nominee.myVaultId : null,
+          familyVaultId: vaultType === 'family_vault' ? vaultId : null,
+          action: 'nominee_item_downloaded',
+          description: 'Nominee downloaded vault item',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            nomineeId: session.nomineeId,
+            itemId,
+            filename: downloadFilename,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee item download:', logError);
+    }
+
     // Return encrypted data + IV - client will decrypt
     return NextResponse.json({
       encryptedBlob,

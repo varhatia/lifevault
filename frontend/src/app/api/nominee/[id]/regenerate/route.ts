@@ -45,7 +45,14 @@ export async function PUT(
         id: nomineeId,
         userId: userId,
       },
-      include: {
+      select: {
+        id: true,
+        vaultType: true,
+        myVaultId: true,
+        familyVaultId: true,
+        nomineeName: true,
+        nomineeEmail: true,
+        nomineePhone: true,
         myVault: {
           select: {
             id: true,
@@ -118,6 +125,36 @@ export async function PUT(
         console.error('Failed to send nominee notification email:', emailError);
         // Don't fail the request if email fails
       }
+    }
+
+    // Log nominee regeneration
+    try {
+      const now = new Date();
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: updatedNominee.vaultType === 'family_vault' ? 'family_vault' : 'my_vault',
+          myVaultId: nominee.myVaultId,
+          familyVaultId: nominee.familyVaultId,
+          action: 'nominee_regenerated',
+          description: `Nominee keys regenerated for "${updatedNominee.nomineeName}" in ${updatedNominee.vaultType === 'family_vault' ? 'family vault' : 'my vault'}`,
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            nomineeId: updatedNominee.id,
+            nomineeName: updatedNominee.nomineeName,
+            vaultName: updatedNominee.vaultType === 'family_vault' && updatedNominee.familyVault
+              ? updatedNominee.familyVault.name
+              : updatedNominee.myVault?.name || null,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee regeneration:', logError);
     }
 
     return NextResponse.json({

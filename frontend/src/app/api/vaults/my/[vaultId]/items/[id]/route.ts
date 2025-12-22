@@ -29,14 +29,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
     }
 
-    // Find item to get S3 key
+    // Find item to get S3 key and metadata for logging
     // Verify item belongs to this vault
     const item = await prisma.vaultItem.findFirst({
       where: { 
         id: itemId,
         myVaultId: vaultId,
       },
-      select: { s3Key: true, id: true },
+      select: { s3Key: true, id: true, category: true, title: true },
     });
     
     if (!item) {
@@ -60,6 +60,34 @@ export async function DELETE(
     await prisma.vaultItem.delete({
       where: { id: itemId },
     });
+
+    // Log item deletion activity
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vaultId,
+          vaultItemId: itemId,
+          action: 'item_deleted',
+          description: 'Vault item deleted',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category: item.category,
+            title: item.title,
+            hadFile: !!item.s3Key,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log item deletion activity:', logError);
+    }
     
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -149,6 +149,8 @@ export async function POST(
     await uploadEncryptedFile(encryptedBlob, s3Key);
 
     // Store metadata in database
+    const now = new Date();
+
     const item = await prisma.familyVaultItem.create({
       data: {
         id: itemId,
@@ -170,6 +172,34 @@ export async function POST(
         },
       },
     });
+
+    // Log family vault item upload with member context
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          // family member id is optional; we can log just userId and familyVaultId
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          vaultItemId: item.id,
+          action: 'item_uploaded',
+          description: 'Item uploaded to Family Vault',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category,
+            hasFile: !!s3Key,
+            role: membership.role,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log FamilyVault item upload:', logError);
+    }
 
     return NextResponse.json(
       {

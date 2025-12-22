@@ -82,7 +82,32 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-    
+
+    // Log MyVault creation
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vault.id,
+          action: 'myvault_created',
+          description: 'Personal vault created',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            name: vault.name,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault creation:', logError);
+    }
+
     return NextResponse.json({
       success: true,
       vault,

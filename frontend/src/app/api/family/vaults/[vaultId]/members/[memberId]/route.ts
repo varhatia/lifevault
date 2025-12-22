@@ -94,6 +94,32 @@ export async function PUT(
       },
     });
 
+    // Log role/permissions change
+    try {
+      const now = new Date();
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          action: 'family_member_role_updated',
+          description: 'Family vault member role updated',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            memberId,
+            newRole: role,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family member role update:', logError);
+    }
+
     return NextResponse.json({
       success: true,
       member,
@@ -168,6 +194,32 @@ export async function DELETE(
       where: { id: memberId },
       data: { isActive: false },
     });
+    
+    // Log member removal
+    try {
+      const now = new Date();
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          action: 'family_member_removed',
+          description: 'Family vault member removed',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            memberId,
+            removedRole: targetMember?.role ?? null,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family member removal:', logError);
+    }
 
     return NextResponse.json({
       success: true,

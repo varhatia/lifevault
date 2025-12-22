@@ -57,7 +57,35 @@ export async function GET(
     }
     
     // Download encrypted blob from S3 (server never decrypts)
-    const encryptedBlob = await downloadEncryptedFile(item.s3Key);
+    let encryptedBlob: string;
+    try {
+      encryptedBlob = await downloadEncryptedFile(item.s3Key);
+    } catch (downloadError: any) {
+      console.error('Error downloading file from S3:', {
+        s3Key: item.s3Key,
+        error: downloadError?.message || String(downloadError),
+        stack: process.env.NODE_ENV === 'development' ? downloadError?.stack : undefined,
+      });
+      
+      // Return more specific error messages
+      const errorMessage = downloadError?.message || String(downloadError);
+      if (errorMessage.includes('not initialized')) {
+        return NextResponse.json(
+          { error: 'Storage service not configured. Please contact support.' },
+          { status: 503 }
+        );
+      } else if (errorMessage.includes('not found') || errorMessage.includes('NoSuchKey')) {
+        return NextResponse.json(
+          { error: 'File not found in storage. The file may have been deleted or moved.' },
+          { status: 404 }
+        );
+      } else {
+        return NextResponse.json(
+          { error: `Failed to download file: ${errorMessage}` },
+          { status: 500 }
+        );
+      }
+    }
     
     // Extract filename from S3 key (format: type/ownerId/itemId/filename)
     // The filename is the last part of the S3 key
@@ -104,6 +132,34 @@ export async function GET(
       mimeType = mimeTypes[ext] || 'application/octet-stream';
     }
     
+    const now = new Date();
+
+    // Log item download activity
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'my_vault',
+          myVaultId: vaultId,
+          vaultItemId: itemId,
+          action: 'item_downloaded',
+          description: 'Item downloaded from My Vault',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category: item.category,
+            filename: downloadFilename,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log MyVault item download:', logError);
+    }
+
     // Return encrypted data + IV - client will decrypt
     // NOTE: Server never sees plaintext
     // Server only proxies encrypted blob from S3

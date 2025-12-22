@@ -451,31 +451,45 @@ export default function MyVaultPage() {
       );
 
       // Download encrypted blob from server
-      const response = await fetch(`/api/vaults/my/${selectedVault.id}/items/${item.id}/download`);
-      if (!response.ok) throw new Error("Failed to download");
+    const response = await fetch(
+      `/api/vaults/my/${selectedVault.id}/items/${item.id}/download`
+    );
 
-      const data = await response.json();
-      const { encryptedBlob, iv } = data;
-
-      if (!iv) {
-        throw new Error("IV not found - cannot decrypt");
+    if (!response.ok) {
+      let message = "Failed to download";
+      try {
+        const err = await response.json();
+        if (err?.error) message = err.error;
+      } catch {
+        // ignore JSON parse errors
       }
-
-      // Decrypt file client-side (encryptedBlob is base64 string)
-      const decryptedBlob = await decryptFile(encryptedBlob, iv, vaultKey);
-
-      // Create download link
-      const url = URL.createObjectURL(decryptedBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = item.title;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      alert("Failed to download file");
+      throw new Error(`${message} (status ${response.status})`);
     }
-  };
+
+    const data = await response.json();
+    const { encryptedBlob, iv } = data;
+
+    if (!iv) {
+      throw new Error("IV not found - cannot decrypt");
+    }
+
+    // Decrypt file client-side (encryptedBlob is base64 string)
+    const decryptedBlob = await decryptFile(encryptedBlob, iv, vaultKey);
+
+    // Create download link
+    const url = URL.createObjectURL(decryptedBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = item.title;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to download file";
+    alert(message);
+  }
+};
 
   const handleDelete = async (itemId: string) => {
     if (!selectedVault) return;

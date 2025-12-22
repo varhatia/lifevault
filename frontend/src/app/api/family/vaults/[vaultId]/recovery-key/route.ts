@@ -51,6 +51,8 @@ export async function POST(
       );
     }
 
+    const now = new Date();
+
     // Update FamilyMember's recovery key encrypted SMK (per-member, per-vault)
     // This ensures isolation: each member has their own recovery key for each vault
     await prisma.familyMember.update({
@@ -59,9 +61,33 @@ export async function POST(
       },
       data: {
         recoveryKeyEncryptedSMK: recoveryKeyEncryptedSMK,
-        recoveryKeyGeneratedAt: new Date(),
+        recoveryKeyGeneratedAt: now,
       },
     });
+
+    // Log family vault recovery key generation for this member
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          action: 'familyvault_recovery_key_set',
+          description: 'Family vault recovery key generated for membership',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            familyMemberId: familyMember.id,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log family vault recovery key set:', logError);
+    }
 
     return NextResponse.json({
       success: true,

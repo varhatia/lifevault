@@ -112,6 +112,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Log nominee viewing vault items (owner's activity log)
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId: session.userId,
+          vaultType,
+          myVaultId: vaultType === 'my_vault' ? nominee.myVaultId : null,
+          familyVaultId: vaultType === 'family_vault' ? vaultId : null,
+          action: 'nominee_vault_viewed',
+          description: 'Nominee viewed vault items',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            nomineeId: session.nomineeId,
+            itemCount: items.length,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee vault view:', logError);
+    }
+
     return NextResponse.json({
       items,
       readOnly: true,

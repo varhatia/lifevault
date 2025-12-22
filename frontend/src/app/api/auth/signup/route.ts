@@ -6,7 +6,7 @@ import { sendVerificationEmail } from '@/lib/api/email';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password, fullName } = body || {};
+    const { email, password, fullName, phone } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -31,12 +31,42 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
+    // Optional phone validation (expects E.164-style: +[country][number])
+    if (phone) {
+      const phoneString = String(phone).trim();
+      const phoneRegex = /^\+[1-9]\d{7,14}$/;
+      if (!phoneRegex.test(phoneString)) {
+        return NextResponse.json(
+          { error: 'Invalid phone number format' },
+          { status: 400 }
+        );
+      }
+    }
+
+    const existingByEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingByEmail) {
       return NextResponse.json(
-        { error: 'User with this email already exists' },
+        {
+          error:
+            'An account with this email already exists. Please log in or use a different email / phone number.',
+        },
         { status: 409 }
       );
+    }
+
+    if (phone) {
+      const existingByPhone = await prisma.user.findFirst({
+        where: { phone: String(phone).trim() },
+      });
+      if (existingByPhone) {
+        return NextResponse.json(
+          {
+            error:
+              'An account with this phone number already exists. Please use a different phone number or email address.',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const hashedPassword = await hashPassword(password);
@@ -49,6 +79,7 @@ export async function POST(req: NextRequest) {
     const user = await prisma.user.create({
       data: {
         email,
+        phone: phone ? String(phone).trim() : null,
         hashedPassword,
         fullName: fullName || null,
         emailVerified: false, // Email not verified yet

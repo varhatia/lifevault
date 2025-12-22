@@ -99,6 +99,35 @@ export async function GET(
     };
     const mimeType = mimeTypes[ext] || 'application/octet-stream';
 
+    const now = new Date();
+
+    // Log family vault item download
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vaultId,
+          vaultItemId: itemId,
+          action: 'item_downloaded',
+          description: 'Item downloaded from Family Vault',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            category: item.category,
+            filename: downloadFilename,
+            role: membership.role,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log FamilyVault item download:', logError);
+    }
+
     // Return encrypted data + IV - client will decrypt
     // NOTE: Server never sees plaintext
     // Server only proxies encrypted blob from S3

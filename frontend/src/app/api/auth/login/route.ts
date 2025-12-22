@@ -16,25 +16,54 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user || !user.hashedPassword) {
+      // Explicitly indicate when the account doesn't exist or is misconfigured
       return NextResponse.json(
-        { error: 'Invalid credentials' },
-        { status: 401 }
+        { error: "User does not exist. Please sign up to continue." },
+        { status: 404 }
       );
     }
 
     const valid = await verifyPassword(password, user.hashedPassword);
     if (!valid) {
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { error: 'Invalid credentials. Please check your password.' },
         { status: 401 }
       );
     }
 
+    const now = new Date();
+
     // Update lastLogin timestamp for inactivity monitoring
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLogin: new Date() },
+      data: { lastLogin: now },
     });
+
+    // Capture basic request context for logging (no secrets)
+    const ip =
+      req.headers.get('x-forwarded-for') ||
+      req.headers.get('x-real-ip') ||
+      null;
+    const userAgent = req.headers.get('user-agent') || null;
+
+    // Log successful login activity (no password or vault content)
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId: user.id,
+          vaultType: 'account',
+          action: 'login_success',
+          description: 'User logged in successfully',
+          ipAddress: ip,
+          userAgent,
+          metadata: {},
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      // Do not block login if logging fails
+      console.error('Failed to log login activity:', logError);
+    }
 
     const token = signAuthToken(user.id, user.email);
 

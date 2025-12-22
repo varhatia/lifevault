@@ -167,6 +167,35 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Log nominee access request (owner's activity log)
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: nominee.vaultType,
+          myVaultId: nominee.myVaultId,
+          familyVaultId: nominee.familyVaultId,
+          action: 'nominee_access_requested',
+          description: 'Nominee requested access to vault',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            nomineeId: nominee.id,
+            requestId: accessRequest.id,
+            nomineeName,
+            relationship,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log nominee access request:', logError);
+    }
+
     // Send notification email to user
     try {
       await sendAccessRequestEmail(

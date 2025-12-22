@@ -147,6 +147,31 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Log FamilyVault creation
+    try {
+      const now = new Date();
+      await (prisma as any).activityLog.create({
+        data: {
+          userId,
+          vaultType: 'family_vault',
+          familyVaultId: vault.id,
+          action: 'familyvault_created',
+          description: 'Family vault created',
+          ipAddress:
+            req.headers.get('x-forwarded-for') ||
+            req.headers.get('x-real-ip') ||
+            null,
+          userAgent: req.headers.get('user-agent') || null,
+          metadata: {
+            name: vault.name,
+          },
+          createdAt: now,
+        },
+      });
+    } catch (logError) {
+      console.error('Failed to log FamilyVault creation:', logError);
+    }
+
     return NextResponse.json(
       {
         success: true,

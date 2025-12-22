@@ -219,7 +219,15 @@ export async function downloadEncryptedFile(s3Key: string): Promise<string> {
   
   // Use S3
   if (!s3Client) {
-    throw new Error('S3 client not initialized');
+    // S3 client not initialized, fallback to local storage
+    console.warn('[S3] S3 client not initialized, using local storage fallback for download');
+    const filePath = join(LOCAL_STORAGE_DIR, s3Key.replace(/\//g, '_'));
+    try {
+      const buffer = await fs.readFile(filePath);
+      return buffer.toString('base64');
+    } catch (error) {
+      throw new Error('File not found in local storage');
+    }
   }
   
   const command = new GetObjectCommand({
@@ -235,17 +243,52 @@ export async function downloadEncryptedFile(s3Key: string): Promise<string> {
     }
     
     // Convert stream to buffer
-    const chunks: Uint8Array[] = [];
-    const reader = response.Body.transformToWebStream().getReader();
+    // response.Body is a Readable stream in AWS SDK v3
+    const chunks: Buffer[] = [];
     
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
+    try {
+      // Node.js Readable stream (standard approach for AWS SDK v3)
+      const stream = response.Body as any;
+      
+      // Check if it's a Node.js Readable stream
+      if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
+        // Use async iteration (most reliable for Node.js streams)
+        for await (const chunk of stream) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        }
+      } else if (stream && typeof stream.on === 'function') {
+        // Handle as EventEmitter-based stream
+        await new Promise<void>((resolve, reject) => {
+          stream.on('data', (chunk: any) => {
+            chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          });
+          stream.on('end', () => resolve());
+          stream.on('error', reject);
+        });
+      } else if (typeof stream.transformToWebStream === 'function') {
+        // Web Stream API fallback
+        const reader = stream.transformToWebStream().getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) chunks.push(Buffer.from(value));
+        }
+      } else {
+        throw new Error('Unsupported stream type');
+      }
+      
+      const buffer = Buffer.concat(chunks);
+      return buffer.toString('base64');
+    } catch (streamError: any) {
+      console.error('[S3] Stream conversion error:', {
+        error: streamError?.message || String(streamError),
+        streamType: typeof response.Body,
+        hasAsyncIterator: typeof (response.Body as any)?.[Symbol.asyncIterator] === 'function',
+        hasOn: typeof (response.Body as any)?.on === 'function',
+        hasTransformToWebStream: typeof (response.Body as any)?.transformToWebStream === 'function',
+      });
+      throw new Error(`Failed to read file stream: ${streamError?.message || String(streamError)}`);
     }
-    
-    const buffer = Buffer.concat(chunks.map(chunk => Buffer.from(chunk)));
-    return buffer.toString('base64');
   } catch (error: any) {
     // If S3 fails, try local storage fallback
     console.warn('S3 download failed, trying local storage:', error.message);
@@ -277,7 +320,15 @@ export async function deleteEncryptedFile(s3Key: string): Promise<void> {
   
   // Use S3
   if (!s3Client) {
-    return; // Local storage already handled
+    // S3 client not initialized, fallback to local storage
+    console.warn('[S3] S3 client not initialized, using local storage fallback for delete');
+    const filePath = join(LOCAL_STORAGE_DIR, s3Key.replace(/\//g, '_'));
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      // File might not exist, that's okay
+    }
+    return;
   }
   
   const command = new DeleteObjectCommand({
