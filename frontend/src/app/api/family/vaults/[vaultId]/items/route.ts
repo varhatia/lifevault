@@ -60,10 +60,48 @@ export async function GET(
         },
       },
       orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        category: true,
+        title: true,
+        tags: true,
+        s3Key: true,
+        iv: true,
+        encryptedData: true, // Include encrypted metadata for client-side decryption
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        updatedBy: true,
+        creator: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+        updater: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    // Convert encryptedData Buffer to base64 string for transmission
+    const itemsWithEncryptedMetadata = items.map(item => {
+      const { encryptedData, ...rest } = item;
+      return {
+        ...rest,
+        encryptedMetadata: encryptedData && encryptedData.length > 0
+          ? encryptedData.toString('base64')
+          : null,
+      };
     });
 
     return NextResponse.json({
-      items,
+      items: itemsWithEncryptedMetadata,
       userRole: membership.role,
       canEdit: membership.role === 'admin' || membership.role === 'editor',
       canDelete: membership.role === 'admin',
@@ -129,27 +167,41 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { category, title, tags = [], encryptedBlob, iv, metadata } = body;
+    const { category, title, tags = [], encryptedBlob, iv, metadata, encryptedMetadata } = body;
 
     // Validation
-    if (!category || !title || !encryptedBlob || !iv) {
+    if (!category || !title) {
       return NextResponse.json(
-        { error: 'Missing required fields: category, title, encryptedBlob, iv' },
+        { error: 'Missing required fields: category, title' },
         { status: 400 }
       );
     }
 
+    // File is optional - only process if provided
+    const hasFile = encryptedBlob && iv;
+
     // Generate unique item ID
     const itemId = randomUUID();
 
-    // Generate S3 key for encrypted file
-    const s3Key = generateS3Key(vaultId, itemId, metadata?.name || 'encrypted-file', 'family');
+    let s3Key: string | null = null;
 
-    // Upload encrypted blob to S3 (server never decrypts)
-    await uploadEncryptedFile(encryptedBlob, s3Key);
+    // Only upload to S3 if file is provided
+    if (hasFile) {
+      // Generate S3 key for encrypted file
+      s3Key = generateS3Key(vaultId, itemId, metadata?.name || 'encrypted-file', 'family');
+
+      // Upload encrypted blob to S3 (server never decrypts)
+      await uploadEncryptedFile(encryptedBlob, s3Key);
+    }
 
     // Store metadata in database
     const now = new Date();
+
+    // Store encrypted metadata in encryptedData field (zero-knowledge: server never sees plaintext)
+    // encryptedMetadata is a JSON string containing {iv, ciphertext}, we store it as bytes
+    const encryptedDataBuffer = encryptedMetadata 
+      ? Buffer.from(encryptedMetadata) 
+      : Buffer.from('');
 
     const item = await prisma.familyVaultItem.create({
       data: {
@@ -159,7 +211,8 @@ export async function POST(
         title,
         tags,
         s3Key,
-        iv,
+        iv: iv || null, // IV is only required if file is provided
+        encryptedData: encryptedDataBuffer, // Encrypted metadata fields (zero-knowledge)
         createdBy: userId,
       },
       include: {

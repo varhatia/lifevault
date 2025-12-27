@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         select: {
           items: true,
           members: true,
+          nominees: true,
         },
       },
     },

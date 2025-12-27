@@ -32,7 +32,7 @@ export default function AddItemModal({
   accessText,
 }: AddItemModalProps) {
   const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState("Misc");
+  const [category, setCategory] = useState("identity-vital");
   const [title, setTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export default function AddItemModal({
         }
 
         // Reset form
-        setCategory("Misc");
+        setCategory("identity-vital");
         setTitle("");
         setFile(null);
         onSuccess();
@@ -191,12 +191,18 @@ export default function AddItemModal({
               onChange={(e) => setCategory(e.target.value)}
               className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
             >
-              <option value="Finance">Finance</option>
-              <option value="Insurance">Insurance</option>
-              <option value="Loans">Loans</option>
-              <option value="Identity">Identity</option>
-              <option value="Medical">Medical</option>
-              <option value="Misc">Misc</option>
+              <optgroup label="Must Have">
+                <option value="identity-vital">Identity & Vital Records</option>
+                <option value="finance-investments">Finance → Bank Accounts & Investments</option>
+                <option value="insurance">Insurance</option>
+              </optgroup>
+              <optgroup label="Good to Have">
+                <option value="loans-liabilities">Loans & Liabilities</option>
+                <option value="digital-assets">Digital Assets & Online Presence</option>
+              </optgroup>
+              <optgroup label="Optional / Advance">
+                <option value="legal-estate">Legal & Estate Planning</option>
+              </optgroup>
             </select>
           </div>
 

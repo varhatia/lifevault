@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/hooks/useAuth";
 import { Plus, Users, Lock, FileText, Settings, Trash2, Edit2, Eye, Download } from "lucide-react";
 import CreateVaultModal from "./components/CreateVaultModal";
 import MemberManagementModal from "./components/MemberManagementModal";
 import AddItemModal from "@/components/vaults/AddItemModal";
 import AddNomineeModal from "./components/AddNomineeModal";
+import DeleteVaultModal from "@/components/vaults/DeleteVaultModal";
+import FolderDetailView, { DOCUMENT_TEMPLATES } from "@/components/vaults/FolderDetailView";
 import RecoveryKeyResetModal from "@/components/vaults/RecoveryKeyResetModal";
+import { CategoryConfig, CategoryPriority } from "@/components/vaults/types";
 import {
   generateRSAKeyPair,
   decryptWithRSAPrivateKey,
@@ -43,6 +47,7 @@ type FamilyVault = {
   _count?: {
     items: number;
     members?: number;
+    nominees?: number;
   };
 };
 
@@ -52,6 +57,7 @@ type VaultItem = {
   title: string;
   tags: string[];
   s3Key: string | null;
+  encryptedMetadata?: string | null; // Base64 encoded encrypted metadata
   iv: string | null;
   createdAt: string;
   updatedAt: string;
@@ -68,17 +74,76 @@ type VaultSMK = {
   privateKey: string; // Member's RSA private key (PEM format)
 };
 
-const CATEGORIES = [
-  "Finance",
-  "Insurance",
-  "Loans",
-  "Identity",
-  "Medical",
-  "Misc",
-] as const;
+// Category types are imported above
+
+const CATEGORIES_CONFIG: CategoryConfig[] = [
+  {
+    id: "identity-vital",
+    name: "Identity & Vital Records",
+    priority: "must-have",
+    microcopy: "Proof of identity, relationships, and legal standing. Birth certificates, Aadhaar, PAN, Passport, Marriage/Divorce certificates. Almost every claim, transfer, or legal process starts here.",
+  },
+  {
+    id: "finance-investments",
+    name: "Finance → Bank Accounts & Investments",
+    priority: "must-have",
+    microcopy: "Bank accounts, mutual funds, demat accounts, fixed deposits, PPF/EPF/NPS, bonds. Store access instructions, not plaintext passwords.",
+  },
+  {
+    id: "insurance",
+    name: "Insurance",
+    priority: "must-have",
+    microcopy: "Term life, health, vehicle, home, accidental/disability, employer-provided cover. Policy numbers, coverage amounts, premiums, nominees, claim process notes. During death, this folder is the single most valuable.",
+  },
+  {
+    id: "loans-liabilities",
+    name: "Loans & Liabilities",
+    priority: "good-to-have",
+    microcopy: "Home loans, personal loans, vehicle loans, credit cards, education loans. Total and outstanding amounts, EMI details, auto-debit accounts. Families often discover loans late → legal + credit issues.",
+  },
+  {
+    id: "digital-assets",
+    name: "Digital Assets & Online Presence",
+    priority: "good-to-have",
+    microcopy: "Email accounts, banking apps, investment platforms, social media, cloud storage. Document recovery methods and what to do: Close / Transfer / Memorialize. Avoid storing passwords directly.",
+  },
+  {
+    id: "legal-estate",
+    name: "Legal & Estate Planning",
+    priority: "optional",
+    microcopy: "Will (latest version + location of original), Power of Attorney, nomination summary, trust deeds, guardianship documents. This folder differentiates your app from 1Password-style vaults.",
+  },
+  {
+    id: "emergency-access",
+    name: "Emergency Access Setup",
+    priority: "must-have",
+    microcopy: "Choose someone you trust to access your vault if needed. Set access rules and permissions for emergency situations.",
+  },
+];
+
+const CATEGORIES = CATEGORIES_CONFIG.map(c => c.id) as readonly string[];
+
+const CATEGORY_MICROCOPY: Record<string, string> = CATEGORIES_CONFIG.reduce((acc, cat) => {
+  acc[cat.id] = cat.microcopy;
+  return acc;
+}, {} as Record<string, string>);
+
+const CATEGORY_PRIORITIES: Record<string, CategoryPriority> = CATEGORIES_CONFIG.reduce((acc, cat) => {
+  acc[cat.id] = cat.priority;
+  return acc;
+}, {} as Record<string, CategoryPriority>);
+
+// Helper type for priority
+type CategoryPriorityType = "must-have" | "good-to-have" | "optional";
+
+const CATEGORY_NAMES: Record<string, string> = CATEGORIES_CONFIG.reduce((acc, cat) => {
+  acc[cat.id] = cat.name;
+  return acc;
+}, {} as Record<string, string>);
 
 export default function FamilyVaultPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [vaults, setVaults] = useState<FamilyVault[]>([]);
   const [selectedVault, setSelectedVault] = useState<FamilyVault | null>(null);
   const [items, setItems] = useState<VaultItem[]>([]);
@@ -99,6 +164,118 @@ export default function FamilyVaultPage() {
   const [recoveryKey, setRecoveryKey] = useState("");
   const [showRecoveryResetModal, setShowRecoveryResetModal] = useState(false);
   const [recoveryResetVault, setRecoveryResetVault] = useState<{ id: string; name: string; smkHex: string } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [vaultToDelete, setVaultToDelete] = useState<FamilyVault | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryConfig | null>(null);
+  const [showFolderDetail, setShowFolderDetail] = useState(false);
+  const [vaultNominees, setVaultNominees] = useState<Array<{
+    id: string;
+    nomineeName: string;
+    nomineeEmail: string | null;
+    nomineePhone: string | null;
+    accessTriggerDays: number;
+    isActive: boolean;
+  }>>([]);
+
+  // Handler for adding documents in folder detail view
+  const handleAddDocument = async (
+    documentType: string,
+    fields: Record<string, any>,
+    file: File | null,
+    vaultKey: CryptoKey
+  ): Promise<void> => {
+    if (!selectedVault || !selectedCategory) return;
+    
+    // Check if file is required for this document type
+    const templates = DOCUMENT_TEMPLATES[selectedCategory.id] || [];
+    const template = templates.find(t => t.type === documentType);
+    const fileField = template?.fields.find(f => f.type === "file");
+    const isFileRequired = fileField?.required ?? false;
+    
+    if (isFileRequired && !file) {
+      alert("Please select a file");
+      return;
+    }
+
+    try {
+      let encryptedBlob: string | null = null;
+      let iv: string | null = null;
+      let metadata: any = null;
+
+      // Only encrypt file if provided
+      if (file) {
+        const encrypted = await encryptFile(file, vaultKey);
+        encryptedBlob = encrypted.encryptedBlob;
+        iv = encrypted.iv;
+        metadata = encrypted.metadata;
+      }
+
+      // Create title from document type and fields
+      const title = (fields.title as string) || documentType.replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "Document";
+
+      // Encrypt metadata fields (excluding file-related and title) for zero-knowledge storage
+      const metadataFields: Record<string, any> = {};
+      Object.keys(fields).forEach(key => {
+        if (key !== "title" && key !== "pdf" && key !== "file" && fields[key]) {
+          metadataFields[key] = fields[key];
+        }
+      });
+      
+      // Include filename in encrypted metadata if file is uploaded (zero-knowledge)
+      if (metadata && metadata.name) {
+        metadataFields._fileName = metadata.name; // Store filename in encrypted metadata
+      }
+      
+      // Encrypt metadata fields using vault key (zero-knowledge)
+      const { encryptTextData } = await import("@/lib/crypto");
+      const encryptedMetadata = Object.keys(metadataFields).length > 0 
+        ? await encryptTextData(metadataFields, vaultKey)
+        : null;
+
+      // Upload to API
+      const response = await fetch(`/api/family/vaults/${selectedVault.id}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: selectedCategory.id,
+          title,
+          tags: [documentType, ...Object.keys(fields).filter(k => fields[k])],
+          encryptedBlob,
+          iv,
+          metadata: metadata ? { ...metadata, fields } : { fields },
+          encryptedMetadata: encryptedMetadata ? JSON.stringify(encryptedMetadata) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload");
+      }
+
+      await loadVaultItems(selectedVault.id);
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      alert(error instanceof Error ? error.message : "Failed to upload document");
+    }
+  };
+
+  const handleGetVaultKey = async (): Promise<CryptoKey | null> => {
+    if (!selectedVault) return null;
+    const smkData = vaultSMKs.get(selectedVault.id);
+    if (!smkData) return null;
+
+    // Convert SMK hex to CryptoKey
+    const keyArray = new Uint8Array(
+      smkData.smkHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+    );
+    return await crypto.subtle.importKey(
+      "raw",
+      keyArray,
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  };
 
   // Load vaults on mount
   useEffect(() => {
@@ -611,13 +788,32 @@ export default function FamilyVaultPage() {
 
   const handleDownloadItem = async (item: VaultItem) => {
     if (!selectedVault) return;
+    
+    // Check if document exists
+    if (!item.s3Key) {
+      alert("No document uploaded for this item.");
+      return;
+    }
+    
     const smkData = vaultSMKs.get(selectedVault.id);
-    if (!smkData || !item.s3Key) return;
+    if (!smkData) {
+      alert("Vault is locked. Please unlock it first.");
+      return;
+    }
 
     try {
       // Download encrypted blob from server
       const response = await fetch(`/api/family/vaults/${selectedVault.id}/items/${item.id}/download`);
-      if (!response.ok) throw new Error("Failed to download");
+      if (!response.ok) {
+        let message = "Failed to download";
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(`${message} (status ${response.status})`);
+      }
 
       const data = await response.json();
       const { encryptedBlob, iv, metadata } = data;
@@ -630,16 +826,15 @@ export default function FamilyVaultPage() {
       const smkKey = await importAesKeyFromHex(smkData.smkHex);
 
       // Decrypt file client-side (server never decrypts)
+      // Zero-knowledge: decryption happens only on client, server never sees plaintext
       const decryptedBlob = await decryptFile(encryptedBlob, iv, smkKey);
 
-      // Use filename from metadata if available, otherwise use title
+      // Use metadata from API to preserve original filename and MIME type
       const downloadFilename = metadata?.filename || item.title;
+      const mimeType = metadata?.type || 'application/octet-stream';
       
-      // Convert Blob to ArrayBuffer to create new Blob with proper MIME type
-      const arrayBuffer = await decryptedBlob.arrayBuffer();
-      const blob = metadata?.type 
-        ? new Blob([arrayBuffer], { type: metadata.type })
-        : new Blob([arrayBuffer]);
+      // Create download link with proper MIME type
+      const blob = new Blob([decryptedBlob], { type: mimeType });
 
       // Create download link
       const url = URL.createObjectURL(blob);
@@ -673,8 +868,43 @@ export default function FamilyVaultPage() {
     }
   };
 
-  const getCategoryCount = (category: string) => {
-    return items.filter((item) => item.category === category).length;
+  const handleDeleteVault = async () => {
+    if (!vaultToDelete) return;
+
+    try {
+      const response = await fetch(`/api/family/vaults/${vaultToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to delete vault");
+      }
+
+      // Remove vault from memory
+      setVaultSMKs((prev) => {
+        const next = new Map(prev);
+        next.delete(vaultToDelete.id);
+        return next;
+      });
+
+      // If deleted vault was selected, clear selection
+      if (selectedVault?.id === vaultToDelete.id) {
+        setSelectedVault(null);
+      }
+
+      // Reload vaults
+      await loadVaults();
+      setShowDeleteModal(false);
+      setVaultToDelete(null);
+    } catch (error) {
+      console.error("Error deleting vault:", error);
+      throw error;
+    }
+  };
+
+  const getCategoryCount = (categoryId: string) => {
+    return items.filter((item) => item.category === categoryId).length;
   };
 
   if (loading) {
@@ -721,9 +951,23 @@ export default function FamilyVaultPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {vaults.map((vault) => (
+          {vaults.map((vault) => {
+            const currentUserId = user ? String(user.id) : null;
+            const isAdmin = currentUserId && (
+              vault.owner.id === currentUserId ||
+              vault.members.some(m => m.user.id === currentUserId && m.role === 'admin')
+            );
+            return (
             <div
               key={vault.id}
+                className={`p-4 rounded-xl border transition-colors ${
+                  selectedVault?.id === vault.id
+                    ? "border-brand-500 bg-slate-900/70"
+                    : "border-slate-800 bg-slate-900/60 hover:border-brand-500/60"
+                }`}
+              >
+                <div
+                  className="cursor-pointer"
               onClick={() => {
                 const smk = vaultSMKs.get(vault.id);
                 if (smk) {
@@ -734,11 +978,6 @@ export default function FamilyVaultPage() {
                   setShowUnlockModal(true);
                 }
               }}
-              className={`p-4 rounded-xl border cursor-pointer transition-colors ${
-                selectedVault?.id === vault.id
-                  ? "border-brand-500 bg-slate-900/70"
-                  : "border-slate-800 bg-slate-900/60 hover:border-brand-500/60"
-              }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <h3 className="font-semibold text-white">{vault.name}</h3>
@@ -757,7 +996,24 @@ export default function FamilyVaultPage() {
                 </div>
               </div>
             </div>
-          ))}
+                {isAdmin && (
+                  <div className="mt-3 pt-3 border-t border-slate-800">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVaultToDelete(vault);
+                        setShowDeleteModal(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete Vault
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -802,16 +1058,74 @@ export default function FamilyVaultPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3 mb-6">
-            {CATEGORIES.map((category) => (
-              <VaultCategory
-                key={category}
-                title={category}
-                count={getCategoryCount(category)}
-                onClick={() => {
-                  // TODO: Filter items by category
-                }}
-              />
-            ))}
+            {/* Categories organized by priority */}
+            <div className="space-y-6">
+              {/* Must Have Categories */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold text-red-400">Must Have</span>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {CATEGORIES_CONFIG.filter(c => c.priority === "must-have").map((category) => (
+                    <VaultCategory
+                      key={category.id}
+                      title={category.name}
+                      count={getCategoryCount(category.id)}
+                      priority={category.priority}
+                      microcopy={category.microcopy}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setShowFolderDetail(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Good to Have Categories */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold text-amber-400">Good to Have</span>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {CATEGORIES_CONFIG.filter(c => c.priority === "good-to-have").map((category) => (
+                    <VaultCategory
+                      key={category.id}
+                      title={category.name}
+                      count={getCategoryCount(category.id)}
+                      priority={category.priority}
+                      microcopy={category.microcopy}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setShowFolderDetail(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Optional Categories */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-400">Optional / Advance</span>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {CATEGORIES_CONFIG.filter(c => c.priority === "optional").map((category) => (
+                    <VaultCategory
+                      key={category.id}
+                      title={category.name}
+                      count={getCategoryCount(category.id)}
+                      priority={category.priority}
+                      microcopy={category.microcopy}
+                      onClick={() => {
+                        setSelectedCategory(category);
+                        setShowFolderDetail(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           {items.length === 0 ? (
@@ -1069,6 +1383,135 @@ export default function FamilyVaultPage() {
           onSuccess={handleRecoveryResetSuccess}
         />
       )}
+
+      {/* Delete Vault Modal */}
+      {vaultToDelete && (
+        <DeleteVaultModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setVaultToDelete(null);
+          }}
+          vaultName={vaultToDelete.name}
+          vaultId={vaultToDelete.id}
+          vaultType="family_vault"
+          itemsCount={vaultToDelete._count?.items || 0}
+          membersCount={vaultToDelete._count?.members || 0}
+          nomineesCount={vaultToDelete._count?.nominees || 0}
+          onDelete={handleDeleteVault}
+        />
+      )}
+
+      {/* Folder Detail View */}
+      {selectedCategory && selectedVault && showFolderDetail && (
+        <FolderDetailView
+          isOpen={showFolderDetail}
+          onClose={() => {
+            setShowFolderDetail(false);
+            setSelectedCategory(null);
+          }}
+          category={selectedCategory}
+          vaultId={selectedVault.id}
+          vaultType="family_vault"
+          items={items.filter(i => i.category === selectedCategory.id)}
+          onAddDocument={handleAddDocument as (documentType: string, fields: Record<string, any>, file: File | null, vaultKey: CryptoKey) => Promise<void>}
+          getVaultKey={handleGetVaultKey}
+          onEditDocument={async (itemId: string, documentType: string, fields: Record<string, any>, file: File | null, vaultKey: CryptoKey) => {
+            if (!selectedVault) return;
+
+            try {
+              const updateData: any = {
+                title: fields.title || documentType.replace(/-/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()),
+                tags: [documentType, ...Object.keys(fields).filter(k => fields[k] && k !== "title")],
+              };
+
+              // Encrypt metadata fields (excluding file-related and title) for zero-knowledge storage
+              const metadataFields: Record<string, any> = {};
+              Object.keys(fields).forEach(key => {
+                if (key !== "title" && key !== "pdf" && key !== "file" && fields[key]) {
+                  metadataFields[key] = fields[key];
+                }
+              });
+
+              // If file is provided, encrypt and include in update
+              if (file) {
+                const { encryptedBlob, iv, metadata } = await encryptFile(file, vaultKey);
+                updateData.encryptedBlob = encryptedBlob;
+                updateData.iv = iv;
+                updateData.metadata = { ...metadata, fields };
+                
+                // Include filename in encrypted metadata (zero-knowledge)
+                if (metadata && metadata.name) {
+                  metadataFields._fileName = metadata.name;
+                }
+              }
+
+              // Encrypt metadata fields using vault key (zero-knowledge)
+              const { encryptTextData } = await import("@/lib/crypto");
+              const encryptedMetadata = Object.keys(metadataFields).length > 0 
+                ? await encryptTextData(metadataFields, vaultKey)
+                : null;
+
+              if (encryptedMetadata) {
+                updateData.encryptedMetadata = JSON.stringify(encryptedMetadata);
+              }
+
+              const response = await fetch(`/api/family/vaults/${selectedVault.id}/items/${itemId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updateData),
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Failed to update");
+              }
+
+              await loadVaultItems(selectedVault.id);
+            } catch (error) {
+              console.error("Error updating document:", error);
+              alert(error instanceof Error ? error.message : "Failed to update document");
+              throw error;
+            }
+          }}
+          onDeleteDocument={async (itemId: string) => {
+            if (!selectedVault) return;
+
+            try {
+              const response = await fetch(`/api/family/vaults/${selectedVault.id}/items/${itemId}`, {
+                method: "DELETE",
+              });
+
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || "Failed to delete");
+              }
+
+              await loadVaultItems(selectedVault.id);
+            } catch (error) {
+              console.error("Error deleting document:", error);
+              alert(error instanceof Error ? error.message : "Failed to delete document");
+              throw error;
+            }
+          }}
+          onDownloadDocument={async (itemId: string) => {
+            if (!selectedVault) return;
+            const item = items.find(i => i.id === itemId);
+            if (item) {
+              await handleDownloadItem(item);
+            }
+          }}
+          onRefresh={async () => {
+            if (selectedVault) {
+              await loadVaultItems(selectedVault.id);
+            }
+          }}
+          nominees={selectedCategory.id === "emergency-access" ? vaultNominees : undefined}
+          onAddNominee={selectedCategory.id === "emergency-access" ? () => {
+            setShowNomineeModal(true);
+          } : undefined}
+        />
+      )}
     </div>
   );
 }
@@ -1076,26 +1519,48 @@ export default function FamilyVaultPage() {
 function VaultCategory({
   title,
   count,
+  priority,
+  microcopy,
   onClick,
 }: {
   title: string;
   count: number;
+  priority?: CategoryPriorityType;
+  microcopy?: string;
   onClick?: () => void;
 }) {
+  const priorityColors: Record<CategoryPriorityType, string> = {
+    "must-have": "border-red-500/50 bg-red-500/5",
+    "good-to-have": "border-amber-500/50 bg-amber-500/5",
+    "optional": "border-slate-700 bg-slate-800/40",
+  };
+
+  const priorityBadge: Record<CategoryPriorityType, { text: string; color: string }> = {
+    "must-have": { text: "Must Have", color: "bg-red-500/20 text-red-400" },
+    "good-to-have": { text: "Good to Have", color: "bg-amber-500/20 text-amber-400" },
+    "optional": { text: "Optional", color: "bg-slate-700 text-slate-400" },
+  };
+
   return (
     <div
       onClick={onClick}
-      className="flex cursor-pointer flex-col rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs transition-colors hover:border-slate-700"
+      className={`flex cursor-pointer flex-col rounded-lg border p-3 text-xs transition-colors hover:border-slate-600 ${
+        priority && priority in priorityColors ? priorityColors[priority] : "border-slate-800 bg-slate-900/60"
+      }`}
     >
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-slate-100">{title}</span>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-medium text-slate-100">{title}</span>
+          </div>
+          {microcopy && (
+            <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{microcopy}</p>
+          )}
+        </div>
+        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
           {count} items
         </span>
       </div>
-      <p className="mt-2 text-[11px] text-slate-400">
-        Structured entries and encrypted documents related to {title.toLowerCase()}.
-      </p>
     </div>
   );
 }

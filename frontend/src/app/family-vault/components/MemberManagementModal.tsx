@@ -43,6 +43,7 @@ export default function MemberManagementModal({
   const [showAddForm, setShowAddForm] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [role, setRole] = useState<"admin" | "editor" | "viewer">("viewer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +66,31 @@ export default function MemberManagementModal({
   };
 
   const handleAddMember = async () => {
-    if (!email && !phone) {
-      setError("Either email or phone is required");
+    // Validation: Both email and phone are required
+    if (!email.trim()) {
+      setError("Email is required");
+      return;
+    }
+
+    if (!phone.trim()) {
+      setError("Phone number is required");
+      return;
+    }
+
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Invalid email format");
+      return;
+    }
+
+    // Validate phone number format (must be exactly 10 digits)
+    const digitsOnly = phone.replace(/\D/g, "");
+    if (digitsOnly.length !== 10) {
+      setError("Phone number must be exactly 10 digits");
+      return;
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      setError("Phone number should only contain digits");
       return;
     }
 
@@ -89,7 +113,7 @@ export default function MemberManagementModal({
 
       // Encrypt private key with member's email (temporary password for onboarding)
       // Member will decrypt this with their email, then re-encrypt with their master password
-      const tempPassword = email || phone || "temp-password";
+      const tempPassword = email;
       const { deriveKeyFromPassword, encryptTextData } = await import("@/lib/crypto");
       const tempKey = await deriveKeyFromPassword(tempPassword);
       const encryptedPrivateKeyTemp = await encryptTextData(
@@ -97,12 +121,15 @@ export default function MemberManagementModal({
         tempKey
       );
 
+      // Combine country code with phone number
+      const fullPhone = `${countryCode}${phone.trim()}`;
+
       const res = await fetch(`/api/family/vaults/${vault.id}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email || undefined,
-          phone: phone || undefined,
+          email: email.trim(),
+          phone: fullPhone,
           role,
           memberPublicKey: publicKey,
           encryptedSMK: encryptedSMK, // SMK encrypted with new member's public key
@@ -117,6 +144,7 @@ export default function MemberManagementModal({
 
       setEmail("");
       setPhone("");
+      setCountryCode("+91");
       setRole("viewer");
       setShowAddForm(false);
       loadMembers();
@@ -207,29 +235,69 @@ export default function MemberManagementModal({
             <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
               <h4 className="text-sm font-medium text-white mb-3">Add New Member</h4>
               <div className="space-y-3">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email (optional)"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                />
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Phone (optional)"
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                />
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm"
-                >
-                  <option value="viewer">Viewer (Read-only)</option>
-                  <option value="editor">Editor (Add/Edit)</option>
-                  <option value="admin">Admin (Full Access)</option>
-                </select>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="member@example.com"
+                    required
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Phone Number *
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs text-white focus:border-brand-500 focus:outline-none"
+                    >
+                      <option value="+1">🇺🇸 United States (+1)</option>
+                      <option value="+44">🇬🇧 United Kingdom (+44)</option>
+                      <option value="+91">🇮🇳 India (+91)</option>
+                      <option value="+61">🇦🇺 Australia (+61)</option>
+                      <option value="+65">🇸🇬 Singapore (+65)</option>
+                      <option value="+971">🇦🇪 UAE (+971)</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/\D/g, "");
+                        if (digitsOnly.length <= 10) {
+                          setPhone(digitsOnly);
+                        }
+                      }}
+                      placeholder="10-digit phone"
+                      maxLength={10}
+                      required
+                      className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Format: country code + 10-digit number
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Role
+                  </label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
+                  >
+                    <option value="viewer">Viewer (Read-only)</option>
+                    <option value="editor">Editor (Add/Edit)</option>
+                    <option value="admin">Admin (Full Access)</option>
+                  </select>
+                </div>
                 {error && (
                   <div className="text-red-400 text-sm">{error}</div>
                 )}
@@ -245,6 +313,9 @@ export default function MemberManagementModal({
                     onClick={() => {
                       setShowAddForm(false);
                       setError(null);
+                      setEmail("");
+                      setPhone("");
+                      setCountryCode("+91");
                     }}
                     className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
                   >

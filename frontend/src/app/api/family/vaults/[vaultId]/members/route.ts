@@ -156,10 +156,26 @@ export async function POST(
     const body = await req.json();
     const { email, phone, role, memberPublicKey, encryptedSMK, encryptedPrivateKey, encryptedPrivateKeyTemp } = body;
 
-    // Validation
-    if (!email && !phone) {
+    // Validation: Both email and phone are required
+    if (!email || !email.trim()) {
       return NextResponse.json(
-        { error: 'Either email or phone is required' },
+        { error: 'Email is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!phone || !phone.trim()) {
+      return NextResponse.json(
+        { error: 'Phone number is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
         { status: 400 }
       );
     }
