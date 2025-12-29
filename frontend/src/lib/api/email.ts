@@ -873,3 +873,82 @@ export async function sendFamilyVaultInviteEmail(
   }
 }
 
+/**
+ * Send my vault invite email
+ */
+export async function sendMyVaultInviteEmail(
+  toEmail: string,
+  vaultName: string,
+  inviterName: string,
+  inviteToken: string,
+  vaultId?: string
+): Promise<void> {
+  if (!transporter) {
+    console.warn('Email transporter not configured. Skipping email send.');
+    return;
+  }
+
+  const inviteUrl = `${getBaseUrl()}/my-vault/setup?token=${inviteToken}&vaultId=${vaultId || ''}`;
+
+  const mailOptions = {
+    from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
+    to: toEmail,
+    subject: `You've been invited to join ${vaultName} on LifeVault`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Vault Invitation - LifeVault</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #1f2937; margin-top: 0;">You've been invited to a Vault</h2>
+            <p style="color: #4b5563;">Hi there,</p>
+            <p style="color: #4b5563;">
+              <strong>${inviterName}</strong> has invited you to join the <strong>${vaultName}</strong> vault on LifeVault.
+            </p>
+            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="color: #1e40af; margin: 0; font-size: 14px;">
+                <strong>What is a Vault?</strong><br>
+                A Vault is a shared encrypted vault where members can securely store and access important documents together. All data is encrypted client-side, ensuring complete privacy.
+              </p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${inviteUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Accept Invitation</a>
+            </div>
+            <p style="color: #4b5563; font-size: 14px;">Or copy and paste this link into your browser:</p>
+            <p style="color: #667eea; font-size: 12px; word-break: break-all;">${inviteUrl}</p>
+            <p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              If you didn't expect this invitation, you can safely ignore this email.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+      Hi there,
+      
+      ${inviterName} has invited you to join the ${vaultName} vault on LifeVault.
+      
+      A Vault is a shared encrypted vault where members can securely store and access important documents together.
+      
+      Accept your invitation: ${inviteUrl}
+      
+      If you didn't expect this invitation, you can safely ignore this email.
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`My vault invite email sent to ${toEmail}`);
+  } catch (error) {
+    console.error('Error sending my vault invite email:', error);
+    throw new Error('Failed to send my vault invite email');
+  }
+}
+

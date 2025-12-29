@@ -116,14 +116,18 @@ export async function GET(
     const { vaultId } = await params;
     const userId = String(user.id);
 
-    // Verify user owns the vault
+    // Verify user owns the vault or is a member
     const vault = await prisma.myVault.findFirst({
       where: {
         id: vaultId,
-        ownerId: userId,
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId: userId, isActive: true } } },
+        ],
       },
       select: {
         id: true,
+        ownerId: true,
         masterPasswordVerifier: true,
         masterPasswordEncryptedVaultKey: true,
         recoveryKeyEncryptedVaultKey: true,
@@ -136,6 +140,36 @@ export async function GET(
         { error: 'Vault not found or unauthorized' },
         { status: 404 }
       );
+    }
+
+    const isOwner = vault.ownerId === userId;
+    
+    // If user is a member, get their member data
+    let memberData = null;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+          encryptedSharedMasterKey: true,
+          encryptedPrivateKey: true,
+          recoveryKeyEncryptedSMK: true,
+          recoveryKeyGeneratedAt: true,
+        },
+      });
+      
+      if (!membership) {
+        return NextResponse.json(
+          { error: 'You are not a member of this vault' },
+          { status: 403 }
+        );
+      }
+      
+      memberData = membership;
     }
 
     // Log vault unlock activity (keys fetched for unlock)
@@ -164,12 +198,26 @@ export async function GET(
       console.error('Failed to log MyVault unlock activity:', logError);
     }
 
-    return NextResponse.json({
-      masterPasswordVerifier: vault.masterPasswordVerifier,
-      masterPasswordEncryptedVaultKey: vault.masterPasswordEncryptedVaultKey,
-      recoveryKeyEncryptedVaultKey: vault.recoveryKeyEncryptedVaultKey,
-      recoveryKeyGeneratedAt: vault.recoveryKeyGeneratedAt,
-    });
+    // Return appropriate keys based on whether user is owner or member
+    if (isOwner) {
+      return NextResponse.json({
+        masterPasswordVerifier: vault.masterPasswordVerifier,
+        masterPasswordEncryptedVaultKey: vault.masterPasswordEncryptedVaultKey,
+        recoveryKeyEncryptedVaultKey: vault.recoveryKeyEncryptedVaultKey,
+        recoveryKeyGeneratedAt: vault.recoveryKeyGeneratedAt,
+        isOwner: true,
+      });
+    } else {
+      // For members, return member-specific keys
+      return NextResponse.json({
+        encryptedSharedMasterKey: memberData?.encryptedSharedMasterKey,
+        encryptedPrivateKey: memberData?.encryptedPrivateKey,
+        recoveryKeyEncryptedSMK: memberData?.recoveryKeyEncryptedSMK,
+        recoveryKeyGeneratedAt: memberData?.recoveryKeyGeneratedAt,
+        isOwner: false,
+        isMember: true,
+      });
+    }
   } catch (error) {
     console.error('Error fetching vault keys:', error);
     return NextResponse.json(

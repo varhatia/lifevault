@@ -113,12 +113,6 @@ const CATEGORIES_CONFIG: CategoryConfig[] = [
     priority: "optional",
     microcopy: "Will (latest version + location of original), Power of Attorney, nomination summary, trust deeds, guardianship documents. This folder differentiates your app from 1Password-style vaults.",
   },
-  {
-    id: "emergency-access",
-    name: "Emergency Access Setup",
-    priority: "must-have",
-    microcopy: "Choose someone you trust to access your vault if needed. Set access rules and permissions for emergency situations.",
-  },
 ];
 
 const CATEGORIES = CATEGORIES_CONFIG.map(c => c.id) as readonly string[];
@@ -1045,15 +1039,6 @@ export default function FamilyVaultPage() {
                   </button>
                 </>
               )}
-              {(userRole === "admin" || userRole === "editor") && (
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              )}
             </div>
           </div>
 
@@ -1506,10 +1491,8 @@ export default function FamilyVaultPage() {
               await loadVaultItems(selectedVault.id);
             }
           }}
-          nominees={selectedCategory.id === "emergency-access" ? vaultNominees : undefined}
-          onAddNominee={selectedCategory.id === "emergency-access" ? () => {
-            setShowNomineeModal(true);
-          } : undefined}
+          nominees={undefined}
+          onAddNominee={undefined}
         />
       )}
     </div>

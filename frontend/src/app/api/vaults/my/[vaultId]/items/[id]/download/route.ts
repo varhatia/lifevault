@@ -23,13 +23,29 @@ export async function GET(
     const { vaultId, id: itemId } = await params;
     
     const userId = String(user.id);
-    // Verify user owns the vault
+    // Verify vault exists
     const myVault = await prisma.myVault.findFirst({
-      where: { id: vaultId, ownerId: userId },
+      where: { id: vaultId },
     });
 
     if (!myVault) {
       return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+    }
+
+    // Check if user is owner or member
+    const isOwner = myVault.ownerId === userId;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+      });
+      
+      if (!membership) {
+        return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+      }
     }
 
     // Find item to get S3 key and IV

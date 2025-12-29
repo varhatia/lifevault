@@ -20,13 +20,38 @@ export async function PUT(
     const { vaultId, id: itemId } = await params;
     const userId = String(user.id);
     
-    // Verify user owns the vault
+    // Verify vault exists
     const myVault = await prisma.myVault.findFirst({
-      where: { id: vaultId, ownerId: userId },
+      where: { id: vaultId },
     });
 
     if (!myVault) {
       return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+    }
+
+    // Check if user is owner or member
+    const isOwner = myVault.ownerId === userId;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+        select: { role: true },
+      });
+      
+      if (!membership) {
+        return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+      }
+      
+      // Only admin and editor can update items
+      if (!['admin', 'editor'].includes(membership.role)) {
+        return NextResponse.json(
+          { error: 'You do not have permission to update items in this vault' },
+          { status: 403 }
+        );
+      }
     }
 
     // Verify item belongs to this vault
@@ -162,13 +187,38 @@ export async function DELETE(
     const { vaultId, id: itemId } = await params;
     
     const userId = String(user.id);
-    // Verify user owns the vault
+    // Verify vault exists
     const myVault = await prisma.myVault.findFirst({
-      where: { id: vaultId, ownerId: userId },
+      where: { id: vaultId },
     });
 
     if (!myVault) {
       return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+    }
+
+    // Check if user is owner or member
+    const isOwner = myVault.ownerId === userId;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+        select: { role: true },
+      });
+      
+      if (!membership) {
+        return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
+      }
+      
+      // Only admin and editor can delete items
+      if (!['admin', 'editor'].includes(membership.role)) {
+        return NextResponse.json(
+          { error: 'You do not have permission to delete items from this vault' },
+          { status: 403 }
+        );
+      }
     }
 
     // Find item to get S3 key and metadata for logging

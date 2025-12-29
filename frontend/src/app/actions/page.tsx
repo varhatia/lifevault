@@ -246,12 +246,7 @@ export default function ActionsReviewPage() {
                     >
                       Review
                     </Link>
-                    <Link
-                      href="/family-vault"
-                      className="rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-slate-200 hover:bg-slate-800"
-                    >
-                      Update
-                    </Link>
+                    {/* Family Vault functionality merged into My Vault - Update button removed */}
                   </div>
                 </div>
               </button>
@@ -277,11 +272,12 @@ export default function ActionsReviewPage() {
               myVaults={myVaults}
               sectionId={selectedSectionId}
             />
-            <VaultDetailCard
+            {/* Family Vault functionality merged into My Vault - card hidden */}
+            {/* <VaultDetailCard
               vaultType="family"
               familyVaults={familyVaults}
               sectionId={selectedSectionId}
-            />
+            /> */}
           </div>
 
           {/* Folder empty / checklist states (Frames 4 & 5) */}

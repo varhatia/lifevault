@@ -211,13 +211,7 @@ export default function HomePage() {
           description="Your personal, private vault. Start with bank accounts, IDs and insurance."
           cta="Review Vault"
         />
-        <VaultSummaryCard
-          title="Family Vault"
-          href="/family-vault"
-          completionPercent={estimateFamilyVaultCompletion(familyVaults)}
-          description="A shared space for joint accounts, family policies and important records."
-          cta="Review Vault"
-        />
+        {/* Family Vault functionality merged into My Vault - hidden from navigation */}
       </section>
 
       {/* Section 4: Activity & Reminders */}
@@ -455,15 +449,16 @@ function LifeSetupSection({
     });
   }
 
-  if (!hasFamilyVault) {
-    actions.push({
-      id: "create-family-vault",
-      title: "Create Family Vault",
-      explanation: "A shared space for important family records.",
-      href: "/family-vault",
-      icon: "👨‍👩‍👧‍👦",
-    });
-  }
+  // Family Vault functionality merged into My Vault - actions removed
+  // if (!hasFamilyVault) {
+  //   actions.push({
+  //     id: "create-family-vault",
+  //     title: "Create Family Vault",
+  //     explanation: "A shared space for important family records.",
+  //     href: "/family-vault",
+  //     icon: "👨‍👩‍👧‍👦",
+  //   });
+  // }
 
   if (hasPersonalVault && !hasPersonalNominee) {
     actions.push({
@@ -475,25 +470,16 @@ function LifeSetupSection({
     });
   }
 
-  if (hasFamilyVault && !hasFamilyMember) {
-    actions.push({
-      id: "add-family-member",
-      title: "Add Member to Family Vault",
-      explanation: "Invite a family member to collaborate.",
-      href: "/family-vault",
-      icon: "➕",
-    });
-  }
-
-  if (hasFamilyVault && !hasFamilyNominee) {
-    actions.push({
-      id: "assign-family-nominee",
-      title: "Add Nominee to Family Vault",
-      explanation: "Designate emergency access for shared records.",
-      href: "/family-vault",
-      icon: "🔐",
-    });
-  }
+  // Family Vault members are now managed in My Vault - action removed
+  // if (hasFamilyVault && !hasFamilyMember) {
+  //   actions.push({
+  //     id: "add-family-member",
+  //     title: "Add Member to Family Vault",
+  //     explanation: "Invite a family member to collaborate.",
+  //     href: "/family-vault",
+  //     icon: "➕",
+  //   });
+  // }
 
   const allComplete = actions.length === 0;
 

@@ -43,22 +43,6 @@ export async function GET(
       where: {
         familyVaultId: vaultId,
       },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-          },
-        },
-        updater: {
-          select: {
-            id: true,
-            email: true,
-            fullName: true,
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,

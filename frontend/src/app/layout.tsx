@@ -19,7 +19,7 @@ export default function RootLayout({
   // Handle navigation for unauthenticated users - prevent flickering
   const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     // Only intercept for protected routes when not authenticated
-    const protectedRoutes = ["/my-vault", "/family-vault", "/nominee", "/admin", "/actions", "/activity"];
+    const protectedRoutes = ["/my-vault", "/nominee", "/admin", "/actions", "/activity"];
     if (!authLoading && !isAuthenticated && protectedRoutes.includes(href)) {
       e.preventDefault();
       router.push("/auth/login");
@@ -59,9 +59,6 @@ export default function RootLayout({
                     </a>
                     <a href="/my-vault" onClick={(e) => handleNav(e, "/my-vault")} className="hover:text-white">
                       My Vault
-                    </a>
-                    <a href="/family-vault" onClick={(e) => handleNav(e, "/family-vault")} className="hover:text-white">
-                      Family Vault
                     </a>
                     <a href="/activity" onClick={(e) => handleNav(e, "/activity")} className="hover:text-white">
                       Activity

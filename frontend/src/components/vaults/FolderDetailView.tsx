@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Plus, MoreVertical, ArrowRight, Shield, UserPlus, Edit2, Trash2, Download } from "lucide-react";
+import { X, Check, Plus, MoreVertical, ArrowRight, Edit2, Trash2, Download } from "lucide-react";
 import { CategoryConfig, CategoryPriority } from "./types";
 import { encryptFile } from "@/lib/crypto";
 import { getFieldValidator } from "@/lib/validation";
@@ -14,6 +14,13 @@ type DocumentCard = {
   status: DocumentStatus;
   title: string;
   fields?: Record<string, any>;
+  template?: {
+    type: string;
+    label: string;
+    required: boolean;
+    fields: FieldDefinition[];
+    helpText?: string;
+  };
   item?: {
     id: string;
     category: string;
@@ -22,6 +29,12 @@ type DocumentCard = {
     s3Key?: string | null;
     iv?: string | null;
     encryptedMetadata?: string | null;
+    createdAt?: string;
+    creator?: {
+      id: string;
+      email: string;
+      fullName: string | null;
+    };
   };
 };
 
@@ -45,7 +58,7 @@ type FolderDetailViewProps = {
   onDeleteDocument: (itemId: string) => Promise<void>;
   onDownloadDocument?: (itemId: string) => Promise<void>;
   getVaultKey: () => Promise<CryptoKey | null>;
-  onAddNominee?: () => void; // For emergency-access folder
+  onAddNominee?: () => void;
   nominees?: Array<{
     id: string;
     nomineeName: string;
@@ -53,7 +66,7 @@ type FolderDetailViewProps = {
     nomineePhone: string | null;
     accessTriggerDays: number;
     isActive: boolean;
-  }>; // For emergency-access folder
+  }>;
   onRefresh?: () => void; // Callback to refresh items after edit/delete
 };
 
@@ -547,7 +560,6 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
       ] 
     },
   ],
-  "emergency-access": [], // Special folder - handled separately
 };
 
 const HELPER_TEXTS: Record<string, string> = {
@@ -557,7 +569,6 @@ const HELPER_TEXTS: Record<string, string> = {
   "loans-liabilities": "Families often discover loans late → legal + credit issues.",
   "legal-property": "Even a simple will avoids confusion.",
   "digital-assets": "Online Accounts & Apps Details for Nominees. Would help with easy access and perform actions like Close/Transfer.",
-  "emergency-access": "Choose someone you trust to access your vault if needed. Set access rules and permissions for emergency situations.",
 };
 
 export default function FolderDetailView({
@@ -584,21 +595,6 @@ export default function FolderDetailView({
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<{ id: string; title: string } | null>(null);
 
   if (!isOpen) return null;
-
-  // Special handling for Emergency Access Setup folder
-  if (category.id === "emergency-access") {
-    return (
-      <EmergencyAccessView
-        isOpen={isOpen}
-        onClose={onClose}
-        category={category}
-        vaultId={vaultId}
-        vaultType={vaultType}
-        nominees={nominees}
-        onAddNominee={onAddNominee}
-      />
-    );
-  }
 
   const templates = DOCUMENT_TEMPLATES[category.id] || [];
   const requiredDocs = templates.filter(t => t.required);
@@ -1007,6 +1003,20 @@ function DocumentCard({
   onDownload?: () => void;
   isDeleting?: boolean;
 }) {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getOwnerName = (creator?: { id: string; email: string; fullName: string | null }) => {
+    if (!creator) return "Unknown";
+    return creator.fullName || creator.email || "Unknown";
+  };
+
   return (
     <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors">
       <div className="flex items-center gap-3 flex-1">
@@ -1024,6 +1034,17 @@ function DocumentCard({
               </span>
             )}
           </div>
+          {card.status === "uploaded" && card.item && (
+            <div className="mt-1 text-xs text-slate-400">
+              <span>Owner: {getOwnerName(card.item.creator)}</span>
+              {card.item.createdAt && (
+                <>
+                  <span className="mx-2">•</span>
+                  <span>Uploaded: {formatDate(card.item.createdAt)}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -1270,9 +1291,9 @@ function AddDocumentForm({
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                     className="w-full text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
                   />
-                  {!field.required && (
-                    <p className="text-xs text-slate-400 mt-1">Optional</p>
-                  )}
+                {/* //   {!field.required && (
+                //     <p className="text-xs text-slate-400 mt-1">Optional</p>
+                //   )} */}
                 </div>
               );
             }
@@ -1570,132 +1591,6 @@ function EditDocumentForm({
             </button>
           </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-function EmergencyAccessView({
-  isOpen,
-  onClose,
-  category,
-  vaultId,
-  vaultType,
-  nominees = [],
-  onAddNominee,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  category: CategoryConfig;
-  vaultId: string;
-  vaultType: "my_vault" | "family_vault";
-  nominees?: Array<{
-    id: string;
-    nomineeName: string;
-    nomineeEmail: string | null;
-    nomineePhone: string | null;
-    accessTriggerDays: number;
-    isActive: boolean;
-  }>;
-  onAddNominee?: () => void;
-}) {
-  if (!isOpen) return null;
-
-  const activeNominees = nominees.filter(n => n.isActive);
-  const isConfigured = activeNominees.length > 0;
-
-  return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 rounded-lg border border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-500/20 rounded-lg">
-              <Shield className="w-5 h-5 text-red-400" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white">{category.name}</h2>
-              <p className="text-xs text-slate-400 mt-1">{category.microcopy}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Status */}
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <div className="flex items-center gap-2 mb-2">
-              {isConfigured ? (
-                <>
-                  <Check className="w-5 h-5 text-green-400" />
-                  <span className="text-sm font-medium text-green-400">Emergency access configured</span>
-                </>
-              ) : (
-                <>
-                  <X className="w-5 h-5 text-amber-400" />
-                  <span className="text-sm font-medium text-amber-400">Emergency access not configured</span>
-                </>
-              )}
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {isConfigured
-                ? `${activeNominees.length} nominee${activeNominees.length > 1 ? "s" : ""} can access this vault in case of emergency.`
-                : "No nominees have been assigned. Add a nominee to enable emergency access."}
-            </p>
-          </div>
-
-          {/* Nominees List */}
-          {activeNominees.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-slate-300 mb-3">Configured Nominees</h3>
-              <div className="space-y-3">
-                {activeNominees.map((nominee) => (
-                  <div
-                    key={nominee.id}
-                    className="p-4 bg-slate-800/50 rounded-lg border border-slate-700"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <UserPlus className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm font-medium text-white">{nominee.nomineeName}</span>
-                        </div>
-                        <div className="space-y-1 text-xs text-slate-400">
-                          {nominee.nomineeEmail && (
-                            <div>Email: {nominee.nomineeEmail}</div>
-                          )}
-                          {nominee.nomineePhone && (
-                            <div>Phone: {nominee.nomineePhone}</div>
-                          )}
-                          <div>Access after: {nominee.accessTriggerDays} day{nominee.accessTriggerDays !== 1 ? "s" : ""} of inactivity</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Add Nominee Button */}
-          {onAddNominee && (
-            <div className="pt-4 border-t border-slate-800">
-              <button
-                onClick={onAddNominee}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg transition-colors font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                {activeNominees.length === 0 ? "Add Nominee" : "Add Another Nominee"}
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -2072,7 +1967,20 @@ function DocumentSection({
   title: string;
   description: string;
   template?: { type: string; label: string; required: boolean; fields: FieldDefinition[]; helpText?: string };
-  items: Array<{ id: string; category: string; title: string; tags: string[]; s3Key?: string | null; iv?: string | null }>;
+  items: Array<{ 
+    id: string; 
+    category: string; 
+    title: string; 
+    tags: string[]; 
+    s3Key?: string | null; 
+    iv?: string | null;
+    createdAt?: string;
+    creator?: {
+      id: string;
+      email: string;
+      fullName: string | null;
+    };
+  }>;
   minRows: number;
   onAdd: () => void;
   onEdit: (itemId: string, documentType: string) => void;
@@ -2085,6 +1993,20 @@ function DocumentSection({
   while (displayItems.length < minRows) {
     displayItems.push({ id: `placeholder-${displayItems.length}`, category: "", title: "", tags: [], s3Key: null, iv: null });
   }
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getOwnerName = (creator?: { id: string; email: string; fullName: string | null }) => {
+    if (!creator) return "Unknown";
+    return creator.fullName || creator.email || "Unknown";
+  };
 
   return (
     <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-4">
@@ -2131,6 +2053,17 @@ function DocumentSection({
                           </span>
                         )}
                       </div>
+                      {!isPlaceholder && (
+                        <div className="mt-1 text-xs text-slate-400">
+                          <span>Owner: {getOwnerName(item.creator)}</span>
+                          {item.createdAt && (
+                            <>
+                              <span className="mx-2">•</span>
+                              <span>Uploaded: {formatDate(item.createdAt)}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

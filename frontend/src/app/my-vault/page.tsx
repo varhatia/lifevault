@@ -16,9 +16,10 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import AddItemModal from "@/components/vaults/AddItemModal";
 import CreateMyVaultModal from "./components/CreateMyVaultModal";
 import AddNomineeModal from "./components/AddNomineeModal";
+import MemberManagementModal from "./components/MemberManagementModal";
 import DeleteVaultModal from "@/components/vaults/DeleteVaultModal";
 import FolderDetailView, { DOCUMENT_TEMPLATES } from "@/components/vaults/FolderDetailView";
-import { Download, Trash2, Users } from "lucide-react";
+import { Download, Trash2, Users, UserPlus } from "lucide-react";
 import RecoveryKeyResetModal from "./components/RecoveryKeyResetModal";
 
 type MyVault = {
@@ -42,6 +43,11 @@ type VaultItem = {
   encryptedMetadata?: string | null; // Base64 encoded encrypted metadata
   createdAt: string;
   updatedAt: string;
+  creator?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  };
 };
 
 type VaultKey = {
@@ -89,12 +95,6 @@ const CATEGORIES_CONFIG: Array<CategoryConfig> = [
     priority: "optional",
     microcopy: "Property and Legal documents to help with quick access of important documents.",
   },
-  {
-    id: "emergency-access",
-    name: "Emergency Access Setup",
-    priority: "must-have",
-    microcopy: "Choose someone you trust to access your vault if needed. Set access rules and permissions for emergency situations.",
-  },
 ];
 
 const CATEGORIES = CATEGORIES_CONFIG.map(c => c.id) as readonly string[];
@@ -134,6 +134,7 @@ export default function MyVaultPage() {
   const [showRecoveryResetModal, setShowRecoveryResetModal] = useState(false);
   const [recoveryResetVault, setRecoveryResetVault] = useState<{ id: string; name: string; keyHex: string } | null>(null);
   const [showNomineeModal, setShowNomineeModal] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [vaultToDelete, setVaultToDelete] = useState<MyVault | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<CategoryConfig | null>(null);
@@ -313,19 +314,27 @@ export default function MyVaultPage() {
       // Derive key from master password
       const verifierKey = await deriveKeyFromPassword(masterPassword, false);
 
-      // ALWAYS fetch from server first to get the latest keys (after recovery key reset)
-      // Server keys are the source of truth - they're updated when password is reset
+      // Fetch keys from server to determine if user is owner or member
+      const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
+      if (!keysRes.ok) {
+        throw new Error("Failed to fetch vault keys");
+      }
+      const keysData = await keysRes.json();
+      
+      const isOwner = keysData.isOwner === true;
+      const isMember = keysData.isMember === true;
+
+      let keyHex: string;
+
+      if (isOwner) {
+        // Owner unlock logic (existing)
       const verifierKeyStorage = `vaultVerifier_${vault.id}`;
       const vaultKeyStorageKey = `my_vault_${vault.id}`;
       let verifierRaw: string | null = null;
       let encryptedKeyStr: string | null = null;
       let keysFromServer = false;
       
-      try {
-        const keysRes = await fetch(`/api/vaults/my/${vault.id}/keys`);
-        if (keysRes.ok) {
-          const keysData = await keysRes.json();
-          // Prioritize server keys - they're always the latest (especially after password reset)
+        // Prioritize server keys
           if (keysData.masterPasswordVerifier) {
             verifierRaw = keysData.masterPasswordVerifier;
             keysFromServer = true;
@@ -333,14 +342,9 @@ export default function MyVaultPage() {
           if (keysData.masterPasswordEncryptedVaultKey) {
             encryptedKeyStr = keysData.masterPasswordEncryptedVaultKey;
             keysFromServer = true;
-          }
-        }
-      } catch (serverError) {
-        console.error("Failed to fetch vault keys from server:", serverError);
-        // Fall back to localStorage if server fetch fails (for backwards compatibility)
       }
       
-      // If server didn't have keys, fall back to localStorage (for old vaults that haven't been reset)
+        // Fall back to localStorage if server didn't have keys
       if (!verifierRaw) {
         verifierRaw = localStorage.getItem(verifierKeyStorage);
       }
@@ -372,7 +376,121 @@ export default function MyVaultPage() {
 
       const encryptedKey = JSON.parse(encryptedKeyStr);
       const decryptedData = await decryptTextData(encryptedKey, verifierKey);
-      const keyHex = decryptedData.keyHex;
+        keyHex = decryptedData.keyHex;
+
+        // Sync server keys to localStorage
+        if (typeof window !== "undefined" && keysFromServer && verifierRaw && encryptedKeyStr) {
+          localStorage.setItem(verifierKeyStorage, verifierRaw);
+          localStorage.setItem(vaultKeyStorageKey, encryptedKeyStr);
+        }
+      } else if (isMember) {
+        // Member unlock logic (similar to Family Vault)
+        // Get member data
+        const membersRes = await fetch(`/api/vaults/my/${vault.id}/members`);
+        if (!membersRes.ok) throw new Error("Failed to load members");
+        const membersData = await membersRes.json();
+        
+        // Get current user
+        const userRes = await fetch("/api/auth/me");
+        if (!userRes.ok) throw new Error("Failed to get user");
+        const userData = await userRes.json();
+        const currentUserId = userData.user?.id;
+        
+        const currentUserMember = membersData.members.find(
+          (m: any) => m.user.id === currentUserId
+        );
+
+        if (!currentUserMember?.encryptedSharedMasterKey) {
+          throw new Error("No encrypted vault key found for this member");
+        }
+
+        // Check if member has completed setup
+        if (!currentUserMember.acceptedAt) {
+          throw new Error("You need to accept the invitation and set your master password first. Please check your email for the invitation link.");
+        }
+
+        // Try localStorage first
+        const verifierKeyStorage = `myVaultVerifier_${vault.id}`;
+        const memberStorageKey = `my_vault_member_${vault.id}`;
+        let stored = localStorage.getItem(memberStorageKey);
+        let privateKey: string | null = null;
+        let storedVaultKeyHex: string | null = null;
+        let keysFromServer = false;
+
+        if (stored) {
+          try {
+            const encryptedData = JSON.parse(stored);
+            const decryptedData = await decryptTextData(encryptedData, verifierKey);
+            privateKey = decryptedData.privateKey;
+            storedVaultKeyHex = decryptedData.vaultKeyHex;
+          } catch (e) {
+            console.warn("Failed to decrypt localStorage data, fetching from server:", e);
+            localStorage.removeItem(memberStorageKey);
+            stored = null;
+          }
+        }
+
+        // If not in localStorage, fetch from server
+        if (!privateKey && currentUserMember.encryptedPrivateKey) {
+          try {
+            const encryptedPrivateKeyData = JSON.parse(currentUserMember.encryptedPrivateKey);
+            const decryptedPrivateKeyData = await decryptTextData(encryptedPrivateKeyData, verifierKey);
+            privateKey = decryptedPrivateKeyData.privateKey;
+
+            if (!privateKey) {
+              throw new Error("Failed to decrypt private key from server");
+            }
+
+            // Decrypt vault key from server using the private key
+            const { decryptWithRSAPrivateKey } = await import("@/lib/crypto-rsa");
+            const decryptedVaultKey = await decryptWithRSAPrivateKey(
+              currentUserMember.encryptedSharedMasterKey,
+              privateKey
+            );
+            
+            // Validate decrypted vault key format (64 hex characters for 256-bit key)
+            if (!decryptedVaultKey || decryptedVaultKey.length !== 64 || !/^[0-9a-f]{64}$/i.test(decryptedVaultKey)) {
+              throw new Error(`Decrypted vault key has invalid format. Expected 64 hex characters, got ${decryptedVaultKey?.length || 0} characters.`);
+            }
+            
+            storedVaultKeyHex = decryptedVaultKey;
+            keysFromServer = true;
+
+            // Store in localStorage for faster access next time
+            const encryptedVaultKeyLocal = await encryptTextData(
+              { vaultKeyHex: storedVaultKeyHex, privateKey },
+              verifierKey
+            );
+            localStorage.setItem(memberStorageKey, JSON.stringify(encryptedVaultKeyLocal));
+          } catch (e) {
+            console.error("Failed to decrypt private key from server:", e);
+            throw new Error("Failed to decrypt vault key. Please ensure you're using the correct master password.");
+          }
+        }
+
+        if (!privateKey) {
+          throw new Error("Private key not found. Please contact the vault owner or use recovery key.");
+        }
+
+        if (!storedVaultKeyHex || storedVaultKeyHex.length !== 64 || !/^[0-9a-f]{64}$/i.test(storedVaultKeyHex)) {
+          throw new Error("Invalid vault key format. The vault may need to be re-initialized.");
+        }
+
+        keyHex = storedVaultKeyHex;
+
+        // Update verifier
+        try {
+          const verifierPayload = await encryptTextData(
+            { verifier: "lifevault-v1", vaultId: vault.id },
+            verifierKey
+          );
+          localStorage.setItem(verifierKeyStorage, JSON.stringify(verifierPayload));
+        } catch (e) {
+          console.error("Failed to create/update verifier:", e);
+        }
+      } else {
+        throw new Error("You are not authorized to access this vault");
+      }
 
       // Store in memory
       setVaultKeys((prev) => {
@@ -380,14 +498,6 @@ export default function MyVaultPage() {
         next.set(vault.id, { vaultId: vault.id, keyHex });
         return next;
       });
-
-      // Always sync server keys to localStorage for faster future access
-      // This ensures localStorage is always up-to-date with server (especially after password reset)
-      if (typeof window !== "undefined" && keysFromServer && verifierRaw && encryptedKeyStr) {
-        // Update localStorage with the server keys we just used
-        localStorage.setItem(verifierKeyStorage, verifierRaw);
-        localStorage.setItem(vaultKeyStorageKey, encryptedKeyStr);
-      }
 
       // Select the vault
       setSelectedVault(vault);
@@ -1010,10 +1120,8 @@ export default function MyVaultPage() {
               await loadVaultItems(selectedVault.id);
             }
           }}
-          nominees={selectedCategory.id === "emergency-access" ? vaultNominees : undefined}
-          onAddNominee={selectedCategory.id === "emergency-access" ? () => {
-            setShowNomineeModal(true);
-          } : undefined}
+          nominees={undefined}
+          onAddNominee={undefined}
         />
       )}
 
@@ -1149,10 +1257,11 @@ export default function MyVaultPage() {
                   Nominees
                 </button>
                 <button
-                  onClick={() => setShowUploadModal(true)}
-                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
+                  onClick={() => setShowMemberModal(true)}
+                  className="flex items-center gap-1 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700"
                 >
-                  + Add item
+                  <UserPlus className="w-3 h-3" />
+                  Members
                 </button>
               </div>
             </div>
@@ -1183,6 +1292,21 @@ export default function MyVaultPage() {
                     `Enter your master password for "${selectedVault.name}" to manage nominees:`
                   );
                   return pwd && pwd.trim().length > 0 ? pwd.trim() : null;
+                }}
+                getVaultKeyHex={async () => {
+                  const vaultKeyData = vaultKeys.get(selectedVault.id);
+                  return vaultKeyData ? vaultKeyData.keyHex : null;
+                }}
+              />
+            )}
+
+            {showMemberModal && selectedVault && (
+              <MemberManagementModal
+                isOpen={showMemberModal}
+                onClose={() => setShowMemberModal(false)}
+                vault={selectedVault}
+                onUpdate={() => {
+                  // Refresh vault data if needed
                 }}
                 getVaultKeyHex={async () => {
                   const vaultKeyData = vaultKeys.get(selectedVault.id);

@@ -183,19 +183,17 @@ export async function POST(req: NextRequest) {
         );
       }
     } else if (vaultType === 'family_vault') {
+      // Only vault owners can add nominees, not members (even admins)
       const vault = await prisma.familyVault.findFirst({
         where: {
           id: vaultId,
-          OR: [
-            { ownerId: userId },
-            { members: { some: { userId: userId, isActive: true, role: 'admin' } } },
-          ],
+          ownerId: userId, // Only owner, not members
         },
       });
 
       if (!vault) {
         return NextResponse.json(
-          { error: 'Family vault not found or you do not have admin access' },
+          { error: 'Family vault not found or you are not the owner. Only vault owners can add nominees.' },
           { status: 403 }
         );
       }

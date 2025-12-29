@@ -20,11 +20,27 @@ export async function DELETE(
     const { id: nomineeId } = await params;
     const userId = String(user.id);
 
-    // Find nominee and verify ownership
+    // Find nominee and verify user is the vault owner (not just a member)
     const nominee = await prisma.nominee.findFirst({
       where: {
         id: nomineeId,
         userId: userId,
+      },
+      include: {
+        myVault: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true, // Check owner
+          },
+        },
+        familyVault: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true, // Check owner
+          },
+        },
       },
     });
 
@@ -35,27 +51,25 @@ export async function DELETE(
       );
     }
 
-    // Get nominee details for logging before deletion
-    const nomineeDetails = await prisma.nominee.findFirst({
-      where: {
-        id: nomineeId,
-        userId: userId,
-      },
-      include: {
-        myVault: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        familyVault: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
+    // Verify user is the vault owner (not just a member)
+    if (nominee.vaultType === 'my_vault') {
+      if (nominee.myVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can delete nominees' },
+          { status: 403 }
+        );
+      }
+    } else if (nominee.vaultType === 'family_vault') {
+      if (nominee.familyVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can delete nominees' },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Get nominee details for logging before deletion (already fetched above)
+    const nomineeDetails = nominee;
 
     // Soft delete (set isActive to false)
     await prisma.nominee.update({

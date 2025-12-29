@@ -22,12 +22,9 @@ export async function GET(
     const { vaultId } = await params;
     const userId = String(user.id);
     
-    // Verify user owns this vault
+    // Verify vault exists
     const vault = await prisma.myVault.findFirst({
-      where: {
-        id: vaultId,
-        ownerId: userId,
-      },
+      where: { id: vaultId },
     });
     
     if (!vault) {
@@ -36,8 +33,29 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Check if user is owner or member
+    const isOwner = vault.ownerId === userId;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+      });
+      
+      if (!membership) {
+        return NextResponse.json(
+          { error: 'Vault not found or access denied' },
+          { status: 404 }
+        );
+      }
+    }
     
-    const items = await prisma.vaultItem.findMany({
+    // Fetch items with creator information
+    // Use type assertion to work around TypeScript cache issues with Prisma client
+    const items = await (prisma.vaultItem.findMany as any)({
       where: { 
         myVaultId: vaultId,
       },
@@ -49,28 +67,49 @@ export async function GET(
         tags: true,
         s3Key: true,
         iv: true,
-        encryptedData: true, // Include encrypted metadata for client-side decryption
+        encryptedData: true,
         createdAt: true,
         updatedAt: true,
+        createdBy: true,
       },
     });
     
+    // Fetch creators for all items in a single query
+    const creatorIds = [...new Set(items.map((item: any) => item.createdBy).filter(Boolean))] as string[];
+    let creatorMap = new Map();
+    
+    if (creatorIds.length > 0) {
+      const creators = await prisma.user.findMany({
+        where: {
+          id: { in: creatorIds },
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+        },
+      });
+      creatorMap = new Map(creators.map(c => [c.id, c]));
+    }
+    
     // Convert encryptedData Buffer to base64 string for transmission
     // The Buffer contains a JSON string, so we convert it to base64 for transmission
-    const itemsWithEncryptedMetadata = items.map(item => {
-      const { encryptedData, ...rest } = item;
+    const itemsWithEncryptedMetadata = items.map((item: any) => {
+      const { encryptedData, createdBy, ...rest } = item;
       try {
         return {
           ...rest,
           encryptedMetadata: encryptedData && Buffer.isBuffer(encryptedData) && encryptedData.length > 0
             ? encryptedData.toString('base64')
             : null,
+          creator: createdBy ? (creatorMap.get(createdBy) || null) : null, // Get creator from map
         };
       } catch (error) {
         console.error('Error converting encryptedData to base64:', error, item.id);
         return {
           ...rest,
           encryptedMetadata: null,
+          creator: createdBy ? (creatorMap.get(createdBy) || null) : null,
         };
       }
     });
@@ -78,8 +117,10 @@ export async function GET(
     return NextResponse.json({ items: itemsWithEncryptedMetadata });
   } catch (error) {
     console.error('Error fetching vault items:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error details:', errorMessage);
     return NextResponse.json(
-      { error: 'Failed to fetch vault items' },
+      { error: `Failed to fetch vault items: ${errorMessage}` },
       { status: 500 }
     );
   }
@@ -117,12 +158,9 @@ export async function POST(
     const { vaultId } = await params;
     const userId = String(user.id);
     
-    // Verify user owns this vault
+    // Verify vault exists
     const vault = await prisma.myVault.findFirst({
-      where: {
-        id: vaultId,
-        ownerId: userId,
-      },
+      where: { id: vaultId },
     });
     
     if (!vault) {
@@ -130,6 +168,34 @@ export async function POST(
         { error: 'Vault not found or access denied' },
         { status: 404 }
       );
+    }
+
+    // Check if user is owner or member
+    const isOwner = vault.ownerId === userId;
+    if (!isOwner) {
+      const membership = await prisma.myVaultMember.findFirst({
+        where: {
+          myVaultId: vaultId,
+          userId: userId,
+          isActive: true,
+        },
+        select: { role: true },
+      });
+      
+      if (!membership) {
+        return NextResponse.json(
+          { error: 'Vault not found or access denied' },
+          { status: 404 }
+        );
+      }
+      
+      // Only admin and editor can create items
+      if (!['admin', 'editor'].includes(membership.role)) {
+        return NextResponse.json(
+          { error: 'You do not have permission to add items to this vault' },
+          { status: 403 }
+        );
+      }
     }
     
     let body;
@@ -183,7 +249,8 @@ export async function POST(
       ? Buffer.from(encryptedMetadata) 
       : Buffer.from('');
 
-    const vaultItem = await prisma.vaultItem.create({
+    // Use type assertion to work around TypeScript cache issues with Prisma client
+    const vaultItem = await (prisma.vaultItem.create as any)({
       data: {
         id: itemId,
         myVaultId: vaultId,
@@ -193,6 +260,7 @@ export async function POST(
         s3Key,
         iv: iv || null, // IV is only required if file is provided
         encryptedData: encryptedDataBuffer, // Encrypted metadata fields (zero-knowledge)
+        createdBy: userId, // Track who created the item (owner or member)
       },
     });
 

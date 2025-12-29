@@ -20,19 +20,26 @@ export async function GET(
     const { id: nomineeId } = await params;
     const userId = String(user.id); // Ensure userId is a string
 
-    // Find nominee and verify ownership
+    // Find nominee and verify user is the vault owner (not just a member)
     const nominee = await prisma.nominee.findFirst({
       where: {
         id: nomineeId,
         userId: userId,
         isActive: true,
       },
-      select: {
-        id: true,
-        nomineeName: true,
-        nomineeEmail: true,
-        nomineePhone: true,
-        nomineeKeyPartC: true, // Return encrypted Part C
+      include: {
+        myVault: {
+          select: {
+            id: true,
+            ownerId: true, // Check owner
+          },
+        },
+        familyVault: {
+          select: {
+            id: true,
+            ownerId: true, // Check owner
+          },
+        },
       },
     });
 
@@ -43,6 +50,23 @@ export async function GET(
       );
     }
 
+    // Verify user is the vault owner (not just a member)
+    if (nominee.vaultType === 'my_vault') {
+      if (nominee.myVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can retrieve nominee keys' },
+          { status: 403 }
+        );
+      }
+    } else if (nominee.vaultType === 'family_vault') {
+      if (nominee.familyVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can retrieve nominee keys' },
+          { status: 403 }
+        );
+      }
+    }
+
     // Return encrypted Part C for manual delivery
     return NextResponse.json({
       success: true,
@@ -51,7 +75,7 @@ export async function GET(
         nomineeName: nominee.nomineeName,
         nomineeEmail: nominee.nomineeEmail,
         nomineePhone: nominee.nomineePhone,
-        encryptedPartC: nominee.nomineeKeyPartC,
+        encryptedPartC: nominee.nomineeKeyPartC, // Encrypted Part C
       },
       instructions: {
         message: 'Share this encrypted key part with your nominee through a secure channel.',

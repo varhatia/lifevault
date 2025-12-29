@@ -4,7 +4,7 @@ import { getUserFromRequest } from '@/lib/api/auth';
 
 /**
  * @route   GET /api/vaults/my
- * @desc    List all MyVault instances for the authenticated user
+ * @desc    List all MyVault instances for the authenticated user (as owner or member)
  * @access  Private
  */
 export async function GET(req: NextRequest) {
@@ -15,16 +15,41 @@ export async function GET(req: NextRequest) {
     }
     
     const userId = String(user.id);
+    
+    // Get vaults where user is owner or member
     const vaults = await prisma.myVault.findMany({
-      where: { 
-        ownerId: userId,
+      where: {
+        OR: [
+          { ownerId: userId },
+          { members: { some: { userId: userId, isActive: true } } },
+        ],
       },
       orderBy: { createdAt: 'desc' },
       include: {
+        owner: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+        members: {
+          where: { isActive: true },
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             items: true,
             nominees: true,
+            members: true,
           },
         },
       },
