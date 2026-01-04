@@ -74,9 +74,15 @@ export async function PUT(
     const updateData: any = {};
     if (masterPasswordVerifier !== undefined) {
       updateData.masterPasswordVerifier = masterPasswordVerifier;
+      // Track when master password is changed (verifier update indicates password change)
+      updateData.masterPasswordLastChanged = new Date();
     }
     if (masterPasswordEncryptedVaultKey !== undefined) {
       updateData.masterPasswordEncryptedVaultKey = masterPasswordEncryptedVaultKey;
+      // If master password encrypted key is updated but verifier wasn't, still track it
+      if (masterPasswordVerifier === undefined) {
+        updateData.masterPasswordLastChanged = new Date();
+      }
     }
     if (recoveryKeyEncryptedVaultKey !== undefined) {
       updateData.recoveryKeyEncryptedVaultKey = recoveryKeyEncryptedVaultKey;

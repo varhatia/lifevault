@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/hooks/useAuth";
 import LandingPage from "./components/LandingPage";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type MyVaultSummary = {
@@ -66,82 +67,23 @@ type ReadinessScore = {
 };
 
 export default function HomePage() {
+  const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
-  const [myVaults, setMyVaults] = useState<MyVaultSummary[] | null>(null);
-  const [familyVaults, setFamilyVaults] = useState<FamilyVaultSummary[] | null>(
-    null
-  );
-  const [nominees, setNominees] = useState<NomineeSummary[] | null>(null);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[] | null>(null);
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
+  // Redirect authenticated users to /my-vault (merged dashboard)
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      void loadDashboardData();
+      router.replace('/my-vault');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, isAuthenticated]);
-
-  const loadDashboardData = async () => {
-    try {
-      setDashboardLoading(true);
-      setDashboardError(null);
-
-      const [myVaultRes, familyVaultRes, nomineesRes, activityRes] =
-        await Promise.all([
-          fetch("/api/vaults/my"),
-          fetch("/api/family/vaults"),
-          fetch("/api/nominee"),
-          fetch("/api/activity/logs?limit=100"),
-        ]);
-
-      if (myVaultRes.ok) {
-        const data = await myVaultRes.json();
-        setMyVaults(data.vaults || []);
-      }
-      if (familyVaultRes.ok) {
-        const data = await familyVaultRes.json();
-        setFamilyVaults(data.vaults || []);
-      }
-      if (nomineesRes.ok) {
-        const data = await nomineesRes.json();
-        setNominees(data.nominees || []);
-      }
-      if (activityRes.ok) {
-        const data = await activityRes.json();
-        setActivityLogs(data.logs || []);
-      }
-    } catch (err) {
-      console.error("Failed to load dashboard data:", err);
-      setDashboardError("We could not load your readiness data. Core vaults still work as usual.");
-    } finally {
-      setDashboardLoading(false);
-    }
-  };
-
-  const readiness: ReadinessScore | null = useMemo(() => {
-    if (!myVaults || !familyVaults || !nominees || !activityLogs) {
-      return null;
-    }
-
-    const inputs: ReadinessInputs = {
-      myVaults,
-      familyVaults,
-      nomineesCount: nominees.filter((n) => n.isActive).length,
-      logs: activityLogs,
-    };
-
-    return computeReadinessScore(inputs);
-  }, [myVaults, familyVaults, nominees, activityLogs]);
+  }, [loading, isAuthenticated, router]);
 
   // Show landing page for unauthenticated users
   if (!loading && !isAuthenticated) {
     return <LandingPage />;
   }
 
-  // Show loading state while checking auth
-  if (loading) {
+  // Show loading/redirecting state for authenticated users (prevents flash of old content)
+  if (loading || isAuthenticated) {
     return (
       <div className="space-y-6">
         <p className="text-sm text-slate-400">Loading...</p>
@@ -149,81 +91,8 @@ export default function HomePage() {
     );
   }
 
-  // Show dashboard for authenticated users
-  return (
-    <div className="space-y-6">
-      {/* Section 1: Readiness Hero */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div className="max-w-xl">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-            Your Life Readiness
-          </h1>
-          <p className="mt-2 text-sm text-slate-300">
-            {readiness && readiness.score >= 80
-              ? "You're well prepared. Keep things up to date."
-              : readiness && readiness.score < 80
-              ? "A few steps can significantly improve your preparedness."
-              : "The goal is not completion. The goal is confidence."}
-          </p>
-          {dashboardError && (
-            <p className="mt-2 text-xs text-amber-400">
-              {dashboardError}
-            </p>
-          )}
-        </div>
-        <div className="flex flex-col items-center justify-center">
-          <ReadinessRing
-            percentage={readiness?.score ?? 0}
-            loading={dashboardLoading || !readiness}
-          />
-          <div className="mt-2 text-center">
-            <p className="text-xs font-medium text-slate-200">
-              {readiness ? readiness.bucketLabel : "Calculating..."}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Section 2: Life Setup (Foundational Nudges) */}
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight text-slate-100">
-            Complete Your Life Setup
-          </h2>
-          <p className="mt-1 text-[11px] text-slate-400">
-            These one-time steps help ensure your information is available to the people you trust.
-          </p>
-        </div>
-        <LifeSetupSection
-          myVaults={myVaults}
-          familyVaults={familyVaults}
-          nominees={nominees}
-          loading={dashboardLoading}
-        />
-      </section>
-
-      {/* Section 3: Vault Overview */}
-      <section className="grid gap-4 md:grid-cols-2">
-        <VaultSummaryCard
-          title="My Vault"
-          href="/my-vault"
-          completionPercent={estimateMyVaultCompletion(myVaults)}
-          description="Your personal, private vault. Start with bank accounts, IDs and insurance."
-          cta="Review Vault"
-        />
-        {/* Family Vault functionality merged into My Vault - hidden from navigation */}
-      </section>
-
-      {/* Section 4: Activity & Reminders */}
-      <section className="grid gap-4 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <ActivitySummaryCard logs={activityLogs} loading={dashboardLoading} />
-        <InfoBlob
-          title="Why this matters"
-          body="When documents and simple summaries are organised, families avoid frantic searches, missed claims and hard conversations during stressful moments."
-        />
-      </section>
-    </div>
-  );
+  // Fallback (should not reach here - authenticated users are redirected)
+  return null;
 }
 
 function ReadinessRing({

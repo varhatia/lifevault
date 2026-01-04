@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Plus, MoreVertical, ArrowRight, Edit2, Trash2, Download } from "lucide-react";
+import { X, Check, Plus, MoreVertical, ArrowRight, Edit2, Trash2, Download, CheckCircle2 } from "lucide-react";
 import { CategoryConfig, CategoryPriority } from "./types";
 import { encryptFile } from "@/lib/crypto";
 import { getFieldValidator } from "@/lib/validation";
@@ -68,6 +68,10 @@ type FolderDetailViewProps = {
     isActive: boolean;
   }>;
   onRefresh?: () => void; // Callback to refresh items after edit/delete
+  reviewMode?: boolean; // Whether this view is opened from review modal
+  onItemReviewed?: (itemId: string) => void; // Callback when an item is marked as reviewed
+  reviewedItems?: Set<string>; // Set of item IDs that have been reviewed
+  onCloseAndReturnToReview?: () => void; // Callback to close and return to review modal
 };
 
 // Helper function to render a field based on its definition
@@ -586,6 +590,10 @@ export default function FolderDetailView({
   onAddNominee,
   nominees = [],
   onRefresh,
+  reviewMode = false,
+  onItemReviewed,
+  reviewedItems = new Set(),
+  onCloseAndReturnToReview,
 }: FolderDetailViewProps) {
   const [selectedDocumentType, setSelectedDocumentType] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -676,12 +684,35 @@ export default function FolderDetailView({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (reviewMode && onCloseAndReturnToReview) {
+                onCloseAndReturnToReview();
+              } else {
+                onClose();
+              }
+            }}
             className="text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Review Mode Banner - Only visible when opened from review modal */}
+        {reviewMode && (
+          <div className="mb-6 p-4 rounded-lg border border-brand-500/50 bg-brand-500/10">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-brand-400" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-brand-300">
+                  Review Mode: Mark each item as reviewed when done
+                </p>
+                <p className="text-xs text-brand-400/80 mt-1">
+                  Check the box on each card after reviewing it. The category will be marked complete when all items are reviewed.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
 
         {/* Document Cards or Sections */}
@@ -697,6 +728,10 @@ export default function FolderDetailView({
               onDeleteDocumentWithConfirm={(itemId: string, itemTitle: string) => {
                 setDeleteConfirmItem({ id: itemId, title: itemTitle });
               }}
+              reviewMode={reviewMode}
+              reviewedItems={reviewedItems}
+              onItemReviewed={onItemReviewed}
+              onCloseAndReturnToReview={onCloseAndReturnToReview}
               onEditDocument={async (itemId, documentType) => {
                 const item = items.find(i => i.id === itemId);
                 if (item) {
@@ -757,6 +792,23 @@ export default function FolderDetailView({
                       card={card}
                       template={template}
                       onAdd={() => handleAddDocument(card.type)}
+                      reviewMode={reviewMode}
+                      onItemReviewed={card.item ? (itemId) => {
+                        if (onItemReviewed) {
+                          onItemReviewed(itemId);
+                          // Check if all items in category are reviewed
+                          const allItemsReviewed = items.every(item => 
+                            !item.id || reviewedItems.has(item.id) || item.id === itemId
+                          );
+                          if (allItemsReviewed && onCloseAndReturnToReview) {
+                            // Close and return to review modal
+                            setTimeout(() => {
+                              onCloseAndReturnToReview();
+                            }, 500);
+                          }
+                        }
+                      } : undefined}
+                      isReviewed={card.item ? reviewedItems.has(card.item.id) : false}
                       onEdit={async () => {
                         if (card.item) {
                           // Decrypt metadata if available
@@ -824,6 +876,23 @@ export default function FolderDetailView({
                       card={card}
                       template={template}
                       onAdd={() => handleAddDocument(card.type)}
+                      reviewMode={reviewMode}
+                      onItemReviewed={card.item ? (itemId) => {
+                        if (onItemReviewed) {
+                          onItemReviewed(itemId);
+                          // Check if all items in category are reviewed
+                          const allItemsReviewed = items.every(item => 
+                            !item.id || reviewedItems.has(item.id) || item.id === itemId
+                          );
+                          if (allItemsReviewed && onCloseAndReturnToReview) {
+                            // Close and return to review modal
+                            setTimeout(() => {
+                              onCloseAndReturnToReview();
+                            }, 500);
+                          }
+                        }
+                      } : undefined}
+                      isReviewed={card.item ? reviewedItems.has(card.item.id) : false}
                       onEdit={async () => {
                         if (card.item) {
                           // Decrypt metadata if available
@@ -994,6 +1063,9 @@ function DocumentCard({
   onDelete,
   onDownload,
   isDeleting = false,
+  reviewMode = false,
+  onItemReviewed,
+  isReviewed = false,
 }: {
   card: DocumentCard;
   template: { type: string; label: string; required: boolean; fields: FieldDefinition[]; helpText?: string };
@@ -1002,6 +1074,9 @@ function DocumentCard({
   onDelete?: () => void;
   onDownload?: () => void;
   isDeleting?: boolean;
+  reviewMode?: boolean;
+  onItemReviewed?: (itemId: string) => void;
+  isReviewed?: boolean;
 }) {
   const formatDate = (dateString?: string) => {
     if (!dateString) return "";
@@ -1018,7 +1093,9 @@ function DocumentCard({
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-colors">
+    <div className={`flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border transition-colors ${
+      isReviewed ? "border-green-500/50 bg-green-500/5" : "border-slate-700 hover:border-slate-600"
+    }`}>
       <div className="flex items-center gap-3 flex-1">
         {card.status === "uploaded" ? (
           <Check className="w-5 h-5 text-green-400" />
@@ -1031,6 +1108,12 @@ function DocumentCard({
             {card.template && (
               <span className="text-xs px-2 py-0.5 bg-slate-700/50 text-slate-300 rounded">
                 {card.template.label}
+              </span>
+            )}
+            {isReviewed && (
+              <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                Reviewed
               </span>
             )}
           </div>
@@ -1050,6 +1133,25 @@ function DocumentCard({
       <div className="flex items-center gap-2">
         {card.status === "uploaded" ? (
           <>
+            {/* Review Mode Checkbox - Show alongside existing actions */}
+            {reviewMode && card.item?.id && onItemReviewed && (
+              <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 hover:bg-brand-500/20 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isReviewed}
+                  onChange={(e) => {
+                    if (card.item) {
+                      onItemReviewed(card.item.id);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
+                />
+                <span className="text-xs font-medium text-brand-300 whitespace-nowrap">
+                  {isReviewed ? "Reviewed" : "Review"}
+                </span>
+              </label>
+            )}
+            {/* Existing actions - always show */}
             {onDownload && card.item?.s3Key && (
               <button
                 onClick={onDownload}
@@ -1608,6 +1710,10 @@ function DocumentSectionsView({
   onDownloadDocument,
   isDeleting,
   getVaultKey,
+  reviewMode = false,
+  reviewedItems = new Set(),
+  onItemReviewed,
+  onCloseAndReturnToReview,
 }: {
   category: CategoryConfig;
   templates: Array<{ type: string; label: string; required: boolean; fields: FieldDefinition[]; helpText?: string }>;
@@ -1619,6 +1725,10 @@ function DocumentSectionsView({
   onDownloadDocument?: (itemId: string) => Promise<void>;
   isDeleting: string | null;
   getVaultKey: () => Promise<CryptoKey | null>;
+  reviewMode?: boolean;
+  reviewedItems?: Set<string>;
+  onItemReviewed?: (itemId: string) => void;
+  onCloseAndReturnToReview?: () => void;
 }) {
   // For Finance, group into Bank Accounts and Investments sections
   if (category.id === "finance-investments") {
@@ -1645,6 +1755,10 @@ function DocumentSectionsView({
           })}
           onDownload={onDownloadDocument}
           isDeleting={isDeleting}
+          reviewMode={reviewMode}
+          reviewedItems={reviewedItems}
+          onItemReviewed={onItemReviewed}
+          onCloseAndReturnToReview={onCloseAndReturnToReview}
         />
         
         {/* Investments Section */}
@@ -1663,6 +1777,10 @@ function DocumentSectionsView({
           })}
           onDownload={onDownloadDocument}
           isDeleting={isDeleting}
+          reviewMode={reviewMode}
+          reviewedItems={reviewedItems}
+          onItemReviewed={onItemReviewed}
+          onCloseAndReturnToReview={onCloseAndReturnToReview}
         />
       </div>
     );
@@ -1696,6 +1814,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1716,6 +1838,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1736,6 +1862,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
       </div>
@@ -1774,6 +1904,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1794,6 +1928,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1814,6 +1952,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1834,6 +1976,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
         
@@ -1854,6 +2000,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         )}
       </div>
@@ -1897,6 +2047,10 @@ function DocumentSectionsView({
           })}
           onDownload={onDownloadDocument}
           isDeleting={isDeleting}
+          reviewMode={reviewMode}
+          reviewedItems={reviewedItems}
+          onItemReviewed={onItemReviewed}
+          onCloseAndReturnToReview={onCloseAndReturnToReview}
         />
         
         {/* Legal Section */}
@@ -1915,6 +2069,10 @@ function DocumentSectionsView({
           })}
           onDownload={onDownloadDocument}
           isDeleting={isDeleting}
+          reviewMode={reviewMode}
+          reviewedItems={reviewedItems}
+          onItemReviewed={onItemReviewed}
+          onCloseAndReturnToReview={onCloseAndReturnToReview}
         />
       </div>
     );
@@ -1944,6 +2102,10 @@ function DocumentSectionsView({
             })}
             onDownload={onDownloadDocument}
             isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
           />
         );
       })}
@@ -1963,6 +2125,10 @@ function DocumentSection({
   onDelete,
   onDownload,
   isDeleting,
+  reviewMode = false,
+  reviewedItems = new Set(),
+  onItemReviewed,
+  onCloseAndReturnToReview,
 }: {
   title: string;
   description: string;
@@ -1987,6 +2153,10 @@ function DocumentSection({
   onDelete: (itemId: string, itemTitle: string) => void;
   onDownload?: (itemId: string) => Promise<void>;
   isDeleting: string | null;
+  reviewMode?: boolean;
+  reviewedItems?: Set<string>;
+  onItemReviewed?: (itemId: string) => void;
+  onCloseAndReturnToReview?: () => void;
 }) {
   // Ensure minimum rows are displayed
   const displayItems = [...items];
@@ -2029,10 +2199,14 @@ function DocumentSection({
           const isPlaceholder = item.id.startsWith("placeholder-");
           const hasFile = !!item.s3Key;
           
+          const isItemReviewed = !isPlaceholder && item.id && reviewedItems.has(item.id);
+          
           return (
             <div
               key={item.id || index}
-              className="flex items-center justify-between p-3 bg-slate-900/50 rounded border border-slate-700 hover:border-slate-600 transition-colors"
+              className={`flex items-center justify-between p-3 rounded border transition-colors ${
+                isItemReviewed ? "bg-green-500/5 border-green-500/50" : "bg-slate-900/50 border-slate-700 hover:border-slate-600"
+              }`}
             >
               <div className="flex items-center gap-3 flex-1">
                 {isPlaceholder ? (
@@ -2052,6 +2226,12 @@ function DocumentSection({
                             {template.label}
                           </span>
                         )}
+                        {isItemReviewed && (
+                          <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Reviewed
+                          </span>
+                        )}
                       </div>
                       {!isPlaceholder && (
                         <div className="mt-1 text-xs text-slate-400">
@@ -2068,8 +2248,28 @@ function DocumentSection({
                   )}
                 </div>
               </div>
+              
               {!isPlaceholder && (
                 <div className="flex items-center gap-2">
+                  {/* Review Mode Checkbox - Show alongside existing actions */}
+                  {reviewMode && item.id && onItemReviewed && (
+                    <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 hover:bg-brand-500/20 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={!!isItemReviewed}
+                        onChange={(e) => {
+                          if (item.id && onItemReviewed) {
+                            onItemReviewed(item.id);
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
+                      />
+                      <span className="text-xs font-medium text-brand-300 whitespace-nowrap">
+                        {isItemReviewed ? "Reviewed" : "Review"}
+                      </span>
+                    </label>
+                  )}
+                  {/* Existing actions - always show */}
                   {onDownload && hasFile && (
                     <button
                       onClick={() => onDownload(item.id)}

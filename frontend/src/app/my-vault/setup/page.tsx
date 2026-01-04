@@ -18,8 +18,29 @@ function MyVaultSetupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { loading: authLoading, isAuthenticated } = useAuth();
-  const token = searchParams.get("token");
-  const vaultId = searchParams.get("vaultId");
+  const [token, setToken] = useState<string | null>(searchParams.get("token"));
+  const [vaultId, setVaultId] = useState<string | null>(searchParams.get("vaultId"));
+
+  // Restore invitation context from sessionStorage if URL params are missing
+  useEffect(() => {
+    if ((!token || !vaultId) && isAuthenticated) {
+      const inviteData = sessionStorage.getItem('myVaultInvite');
+      if (inviteData) {
+        try {
+          const { token: storedToken, vaultId: storedVaultId } = JSON.parse(inviteData);
+          if (storedToken && storedVaultId) {
+            setToken(storedToken);
+            setVaultId(storedVaultId);
+            // Update URL without navigation to maintain context
+            const newUrl = `/my-vault/setup?token=${storedToken}&vaultId=${storedVaultId}`;
+            window.history.replaceState({}, '', newUrl);
+          }
+        } catch (e) {
+          console.error('Error parsing stored invite data:', e);
+        }
+      }
+    }
+  }, [token, vaultId, isAuthenticated]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,12 +54,48 @@ function MyVaultSetupContent() {
   const [recoveryKeySaved, setRecoveryKeySaved] = useState(false);
   const [showRecoveryKey, setShowRecoveryKey] = useState(false);
 
+  // Restore invitation context from sessionStorage if URL params are missing
+  useEffect(() => {
+    if ((!token || !vaultId) && isAuthenticated) {
+      const inviteData = sessionStorage.getItem('myVaultInvite');
+      if (inviteData) {
+        try {
+          const { token: storedToken, vaultId: storedVaultId } = JSON.parse(inviteData);
+          if (storedToken && storedVaultId) {
+            setToken(storedToken);
+            setVaultId(storedVaultId);
+            // Update URL without navigation to maintain context
+            const newUrl = `/my-vault/setup?token=${storedToken}&vaultId=${storedVaultId}`;
+            window.history.replaceState({}, '', newUrl);
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing stored invite data:', e);
+        }
+      }
+    }
+  }, [token, vaultId, isAuthenticated]);
+
   // Check authentication - redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       // Store the invitation link in sessionStorage to redirect back after login
       if (token && vaultId) {
         sessionStorage.setItem('myVaultInvite', JSON.stringify({ token, vaultId }));
+      } else {
+        // If URL params are missing, try to restore from sessionStorage
+        const inviteData = sessionStorage.getItem('myVaultInvite');
+        if (inviteData) {
+          try {
+            const { token: storedToken, vaultId: storedVaultId } = JSON.parse(inviteData);
+            if (storedToken && storedVaultId) {
+              setToken(storedToken);
+              setVaultId(storedVaultId);
+            }
+          } catch (e) {
+            console.error('Error parsing stored invite data:', e);
+          }
+        }
       }
       router.push("/auth/login");
       return;

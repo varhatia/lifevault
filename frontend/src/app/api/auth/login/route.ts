@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { verifyPassword, signAuthToken, AUTH_COOKIE_NAME } from '@/lib/api/auth';
+import { generateDeviceFingerprint, getDeviceName } from '@/lib/device-fingerprint';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { email, password } = body || {};
+    const { email, password, deviceFingerprint, deviceName } = body || {};
 
     if (!email || !password) {
       return NextResponse.json(
@@ -33,18 +34,85 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    // Update lastLogin timestamp for inactivity monitoring
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: now },
-    });
-
     // Capture basic request context for logging (no secrets)
     const ip =
       req.headers.get('x-forwarded-for') ||
       req.headers.get('x-real-ip') ||
       null;
     const userAgent = req.headers.get('user-agent') || null;
+
+    // Handle device binding
+    let deviceAuthorized = false;
+    let requiresDeviceAuthorization = false;
+
+    if (deviceFingerprint) {
+      // Check if device is trusted
+      const trustedDevice = await prisma.trustedDevice.findUnique({
+        where: {
+          userId_deviceFingerprint: {
+            userId: user.id,
+            deviceFingerprint,
+          },
+        },
+      });
+
+      if (trustedDevice && trustedDevice.isActive) {
+        // Device is trusted - update last used timestamp
+        await prisma.trustedDevice.update({
+          where: { id: trustedDevice.id },
+          data: { lastUsedAt: now },
+        });
+        deviceAuthorized = true;
+      } else {
+        // Device is not trusted - requires authorization
+        requiresDeviceAuthorization = true;
+        
+        // Generate device name if not provided
+        const finalDeviceName = deviceName || getDeviceName(userAgent || '');
+        
+        // Create or update device record (inactive)
+        if (trustedDevice) {
+          await prisma.trustedDevice.update({
+            where: { id: trustedDevice.id },
+            data: {
+              deviceName: finalDeviceName,
+              userAgent: userAgent || null,
+              ipAddress: ip,
+              isActive: false,
+            },
+          });
+        } else {
+          await prisma.trustedDevice.create({
+            data: {
+              userId: user.id,
+              deviceFingerprint,
+              deviceName: finalDeviceName,
+              userAgent: userAgent || null,
+              ipAddress: ip,
+              isActive: false,
+            },
+          });
+        }
+      }
+    }
+
+    // If device requires authorization, return error with flag
+    if (requiresDeviceAuthorization) {
+      return NextResponse.json(
+        {
+          error: 'Device authorization required',
+          requiresDeviceAuthorization: true,
+          deviceFingerprint,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Update lastLogin timestamp for inactivity monitoring
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLogin: now },
+    });
 
     // Log successful login activity (no password or vault content)
     try {
@@ -56,7 +124,10 @@ export async function POST(req: NextRequest) {
           description: 'User logged in successfully',
           ipAddress: ip,
           userAgent,
-          metadata: {},
+          metadata: {
+            deviceAuthorized,
+            deviceFingerprint: deviceFingerprint || null,
+          },
           createdAt: now,
         },
       });
@@ -74,6 +145,7 @@ export async function POST(req: NextRequest) {
         fullName: user.fullName,
         createdAt: user.createdAt,
       },
+      deviceAuthorized,
     });
 
     res.cookies.set(AUTH_COOKIE_NAME, token, {

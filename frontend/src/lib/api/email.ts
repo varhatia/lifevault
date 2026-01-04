@@ -952,3 +952,212 @@ export async function sendMyVaultInviteEmail(
   }
 }
 
+/**
+ * Send device authorization email
+ */
+export async function sendDeviceAuthorizationEmail(
+  userEmail: string,
+  userName: string | null,
+  deviceName: string,
+  authorizationToken: string,
+  deviceFingerprint: string,
+  ipAddress: string,
+  userAgent: string
+): Promise<void> {
+  if (!transporter) {
+    console.warn('Email transporter not configured. Skipping email send.');
+    return;
+  }
+
+  const authorizationUrl = `${getBaseUrl()}/auth/device/verify?token=${authorizationToken}&fingerprint=${deviceFingerprint}`;
+  const displayName = userName || userEmail;
+
+  // Parse user agent for better display
+  const browserInfo = userAgent.includes('Chrome') ? 'Chrome' :
+                     userAgent.includes('Firefox') ? 'Firefox' :
+                     userAgent.includes('Safari') ? 'Safari' :
+                     userAgent.includes('Edge') ? 'Edge' : 'Unknown Browser';
+
+  const mailOptions = {
+    from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
+    to: userEmail,
+    subject: 'Authorize New Device - LifeVault',
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Authorize New Device - LifeVault</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #1f2937; margin-top: 0;">Authorize New Device</h2>
+            <p style="color: #4b5563;">Hi ${displayName},</p>
+            <p style="color: #4b5563;">
+              A login attempt was made from a new device. To protect your account, please authorize this device by clicking the button below.
+            </p>
+            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="color: #1e40af; margin: 0; font-size: 14px;">
+                <strong>Device Information:</strong><br>
+                • Device: ${deviceName}<br>
+                • Browser: ${browserInfo}<br>
+                • IP Address: ${ipAddress}<br>
+                • Time: ${new Date().toLocaleString()}
+              </p>
+            </div>
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+              <p style="color: #92400e; margin: 0; font-size: 14px;">
+                <strong>⚠️ Security Notice</strong><br>
+                If you did not attempt to log in from this device, please do not authorize it and consider changing your password immediately.
+              </p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${authorizationUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Authorize Device</a>
+            </div>
+            <p style="color: #4b5563; font-size: 14px;">Or copy and paste this link into your browser:</p>
+            <p style="color: #667eea; font-size: 12px; word-break: break-all;">${authorizationUrl}</p>
+            <p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              This authorization link will expire in 24 hours. Once authorized, this device will be trusted for future logins.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+      Hi ${displayName},
+      
+      A login attempt was made from a new device. To protect your account, please authorize this device.
+      
+      Device Information:
+      - Device: ${deviceName}
+      - Browser: ${browserInfo}
+      - IP Address: ${ipAddress}
+      - Time: ${new Date().toLocaleString()}
+      
+      Authorize this device: ${authorizationUrl}
+      
+      ⚠️ Security Notice: If you did not attempt to log in from this device, please do not authorize it and consider changing your password immediately.
+      
+      This authorization link will expire in 24 hours.
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Device authorization email sent to ${userEmail}`);
+  } catch (error) {
+    console.error('Error sending device authorization email:', error);
+    throw new Error('Failed to send device authorization email');
+  }
+}
+
+/**
+ * Send vault security rotation reminder email
+ */
+export async function sendVaultSecurityRotationReminderEmail(
+  userEmail: string,
+  userName: string | null,
+  vaultName: string,
+  rotationItems: {
+    masterPassword?: boolean;
+    recoveryKey?: boolean;
+    members?: Array<{ email: string; fullName: string | null }>;
+    nominees?: Array<{ name: string; email: string | null }>;
+  }
+): Promise<void> {
+  if (!transporter) {
+    console.warn('Email transporter not configured. Skipping email send.');
+    return;
+  }
+
+  const vaultUrl = `${getBaseUrl()}/my-vault`;
+  const displayName = userName || userEmail;
+
+  // Build rotation items list
+  const itemsList: string[] = [];
+  if (rotationItems.masterPassword) {
+    itemsList.push('• Vault Master Password');
+  }
+  if (rotationItems.recoveryKey) {
+    itemsList.push('• Recovery Key');
+  }
+  if (rotationItems.members && rotationItems.members.length > 0) {
+    itemsList.push(`• Member Keys (${rotationItems.members.length} member(s))`);
+  }
+  if (rotationItems.nominees && rotationItems.nominees.length > 0) {
+    itemsList.push(`• Nominee Keys (${rotationItems.nominees.length} nominee(s))`);
+  }
+
+  const mailOptions = {
+    from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
+    to: userEmail,
+    subject: `Security Reminder: Rotate Your Vault Keys - ${vaultName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Security Reminder - LifeVault</title>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+          </div>
+          <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
+            <h2 style="color: #1f2937; margin-top: 0;">🔒 Security Reminder: Rotate Your Vault Keys</h2>
+            <p style="color: #4b5563;">Hi ${displayName},</p>
+            <p style="color: #4b5563;">
+              It's been 6 months since your last security rotation for vault <strong>"${vaultName}"</strong>. 
+              For your security, we recommend rotating your vault keys.
+            </p>
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+              <p style="color: #92400e; margin: 0; font-size: 14px;">
+                <strong>⚠️ Security Best Practice</strong><br>
+                Regularly rotating your vault keys helps protect your sensitive information and maintain the highest level of security.
+              </p>
+            </div>
+            <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
+              <p style="color: #1e40af; margin: 0; font-size: 14px;">
+                <strong>Items that need rotation:</strong><br>
+                ${itemsList.join('<br>')}
+              </p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${vaultUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Rotate Keys Now</a>
+            </div>
+            <p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+              This is an automated security reminder. Key rotation is recommended every 6 months to maintain optimal security.
+            </p>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `
+      Hi ${displayName},
+      
+      It's been 6 months since your last security rotation for vault "${vaultName}". 
+      For your security, we recommend rotating your vault keys.
+      
+      Items that need rotation:
+      ${itemsList.join('\n')}
+      
+      Rotate keys now: ${vaultUrl}
+      
+      This is an automated security reminder. Key rotation is recommended every 6 months to maintain optimal security.
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`Vault security rotation reminder email sent to ${userEmail} for vault ${vaultName}`);
+  } catch (error) {
+    console.error('Error sending vault security rotation reminder email:', error);
+    throw new Error('Failed to send vault security rotation reminder email');
+  }
+}
+

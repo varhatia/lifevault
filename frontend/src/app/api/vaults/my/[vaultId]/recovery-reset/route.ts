@@ -47,14 +47,14 @@ export async function POST(
 
     const now = new Date();
 
-    // Update user's recovery key encrypted vault key (stored per user, not per vault)
-    // Note: In the current schema, this is stored at user level, but we may need to store per vault
-    // For now, we'll update the user-level field
-    await prisma.user.update({
-      where: { id: userId },
+    // Update vault's recovery key and master password last changed timestamp
+    // Note: Recovery key reset also involves setting a new master password
+    await prisma.myVault.update({
+      where: { id: vaultId },
       data: {
         recoveryKeyEncryptedVaultKey: newRecoveryKeyEncryptedKey,
         recoveryKeyGeneratedAt: now,
+        masterPasswordLastChanged: now, // Master password is reset during recovery
       },
     });
 
