@@ -49,6 +49,7 @@ export default function AddNomineeModal({
   const [nomineeName, setNomineeName] = useState("");
   const [nomineeEmail, setNomineeEmail] = useState("");
   const [nomineePhone, setNomineePhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+91");
   const [accessTriggerDays, setAccessTriggerDays] = useState(90);
   const [encryptionPassword, setEncryptionPassword] = useState("");
   const [regeneratingNomineeId, setRegeneratingNomineeId] = useState<string | null>(null);
@@ -250,6 +251,19 @@ export default function AddNomineeModal({
       return;
     }
 
+    // Validate phone number format (if provided)
+    if (nomineePhone) {
+      const digitsOnly = nomineePhone.replace(/\D/g, "");
+      if (digitsOnly.length !== 10) {
+        setError("Phone number must be exactly 10 digits");
+        return;
+      }
+      if (!/^\d{10}$/.test(nomineePhone)) {
+        setError("Phone number should only contain digits");
+        return;
+      }
+    }
+
     // Validate encryption password
     if (!encryptionPassword || encryptionPassword.length < 8) {
       setError("Encryption password must be at least 8 characters");
@@ -330,7 +344,7 @@ export default function AddNomineeModal({
           vaultId: vaultId, // Auto-add vault ID
           nomineeName: nomineeName.trim(),
           nomineeEmail: nomineeEmail.trim() || null,
-          nomineePhone: nomineePhone.trim() || null,
+          nomineePhone: nomineePhone ? `${countryCode}${nomineePhone.trim()}` : null,
           nomineeKeyPartC: JSON.stringify(encryptedPartC), // Store encrypted Part C
           serverKeyPartB, // Part B to be encrypted and stored server-side
           accessTriggerDays,
@@ -382,6 +396,7 @@ export default function AddNomineeModal({
     setNomineeName("");
     setNomineeEmail("");
     setNomineePhone("");
+    setCountryCode("+91");
     setAccessTriggerDays(90);
     setEncryptionPassword("");
     setConfirmEncryptionPassword("");
@@ -440,7 +455,7 @@ export default function AddNomineeModal({
               {nomineePhone && (
                 <div>
                   <label className="text-xs font-medium text-slate-400">Phone</label>
-                  <p className="text-sm text-white mt-1">{nomineePhone}</p>
+                  <p className="text-sm text-white mt-1">{countryCode}{nomineePhone}</p>
                 </div>
               )}
               <div>
@@ -734,15 +749,38 @@ export default function AddNomineeModal({
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Phone
+                  Phone Number
                 </label>
-                <input
-                  type="tel"
-                  value={nomineePhone}
-                  onChange={(e) => setNomineePhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
-                  placeholder="+1234567890"
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="w-32 rounded-md border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                  >
+                    <option value="+1">🇺🇸 United States (+1)</option>
+                    <option value="+44">🇬🇧 United Kingdom (+44)</option>
+                    <option value="+91">🇮🇳 India (+91)</option>
+                    <option value="+61">🇦🇺 Australia (+61)</option>
+                    <option value="+65">🇸🇬 Singapore (+65)</option>
+                    <option value="+971">🇦🇪 UAE (+971)</option>
+                  </select>
+                  <input
+                    type="tel"
+                    value={nomineePhone}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, "");
+                      if (digitsOnly.length <= 10) {
+                        setNomineePhone(digitsOnly);
+                      }
+                    }}
+                    className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+                    maxLength={10}
+                    placeholder="10-digit phone"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Format: country code + 10-digit number
+                </p>
               </div>
 
               <div>

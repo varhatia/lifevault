@@ -11,6 +11,7 @@ model ActivityLog {
   id             String      @id @default(uuid()) @db.Uuid
   userId         String      @map("user_id") @db.Uuid
   familyMemberId String?     @map("family_member_id") @db.Uuid
+  myVaultMemberId String?     @map("my_vault_member_id") @db.Uuid
   vaultType      String      @map("vault_type") @db.VarChar(20) // 'my_vault' | 'family_vault' | 'account'
   myVaultId      String?     @map("my_vault_id") @db.Uuid
   familyVaultId  String?     @map("family_vault_id") @db.Uuid
@@ -55,15 +56,38 @@ model User {
   passwordResetToken            String?                @map("password_reset_token") @db.VarChar(255)
   passwordResetTokenExpires     DateTime?              @map("password_reset_token_expires") @db.Timestamptz(6)
   familyMemberships             FamilyMember[]
+  myVaultMemberships            MyVaultMember[]
   familyVaultItemsCreated       FamilyVaultItem[]      @relation("FamilyVaultItemCreator")
   familyVaultItemsUpdated       FamilyVaultItem[]      @relation("FamilyVaultItemUpdater")
   familyVaults                  FamilyVault[]          @relation("FamilyVaultOwner")
   inactivityReminders           InactivityReminder[]
   myVaults                      MyVault[]              @relation("MyVaultOwner")
+  vaultItemsCreated             VaultItem[]           @relation("VaultItemCreator")
   accessRequests                NomineeAccessRequest[]
   nominees                      Nominee[]
+  trustedDevices                TrustedDevice[]
 
   @@map("users")
+}
+
+model TrustedDevice {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  deviceFingerprint String @map("device_fingerprint") @db.VarChar(255)
+  deviceName      String   @map("device_name") @db.VarChar(255)
+  userAgent       String?  @map("user_agent") @db.Text
+  ipAddress       String?  @map("ip_address") @db.VarChar(45)
+  lastUsedAt      DateTime @default(now()) @map("last_used_at") @db.Timestamptz(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  isActive        Boolean  @default(true) @map("is_active")
+  authorizationTokenHash String? @map("authorization_token_hash") @db.VarChar(255)
+  authorizationTokenExpires DateTime? @map("authorization_token_expires") @db.Timestamptz(6)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([userId, deviceFingerprint], map: "ix_trusted_devices_user_device")
+  @@index([userId], map: "ix_trusted_devices_user_id")
+  @@index([deviceFingerprint], map: "ix_trusted_devices_fingerprint")
+  @@map("trusted_devices")
 }
 
 model MyVault {
@@ -72,11 +96,16 @@ model MyVault {
   ownerId                       String      @map("owner_id") @db.Uuid
   masterPasswordVerifier        String?     @map("master_password_verifier")
   masterPasswordEncryptedVaultKey String?   @map("master_password_encrypted_vault_key")
+  masterPasswordLastChanged     DateTime?   @map("master_password_last_changed") @db.Timestamptz(6)
   recoveryKeyEncryptedVaultKey  String?     @map("recovery_key_encrypted_vault_key")
   recoveryKeyGeneratedAt       DateTime?   @map("recovery_key_generated_at") @db.Timestamptz(6)
+  lastReviewedAt                DateTime?   @map("last_reviewed_at") @db.Timestamptz(6)
+  reviewReminderFrequency       String?     @map("review_reminder_frequency") @db.VarChar(20) // 'monthly' | 'quarterly' | 'biannual'
+  reviewReminderDay             Int?        @map("review_reminder_day") // DEPRECATED: No longer used. Reminders trigger based on period duration only.
   createdAt                     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedAt                     DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   owner                         User        @relation("MyVaultOwner", fields: [ownerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  members                       MyVaultMember[]
   nominees                      Nominee[]   @relation("MyVaultNominees")
   items                         VaultItem[]
 
@@ -95,10 +124,13 @@ model VaultItem {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   myVaultId     String   @map("my_vault_id") @db.Uuid
+  createdBy     String   @map("created_by") @db.Uuid
   myVault       MyVault  @relation(fields: [myVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator       User     @relation("VaultItemCreator", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([category], map: "ix_vault_items_category")
   @@index([myVaultId], map: "ix_vault_items_my_vault_id")
+  @@index([createdBy], map: "ix_vault_items_created_by")
   @@map("vault_items")
 }
 
@@ -147,11 +179,42 @@ model FamilyMember {
   @@map("family_members")
 }
 
+model MyVaultMember {
+  id                       String      @id @default(uuid()) @db.Uuid
+  myVaultId                String      @map("my_vault_id") @db.Uuid
+  userId                   String      @map("user_id") @db.Uuid
+  role                     String      @default("viewer") @db.VarChar(20)
+  inviteToken              String?     @map("invite_token") @db.VarChar(255)
+  inviteEmail              String?     @map("invite_email") @db.VarChar(255)
+  invitedAt                DateTime?   @map("invited_at") @db.Timestamptz(6)
+  acceptedAt               DateTime?   @map("accepted_at") @db.Timestamptz(6)
+  createdAt                DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  encryptedSharedMasterKey String?     @map("encrypted_shared_master_key")
+  encryptedPrivateKey      String?     @map("encrypted_private_key")
+  encryptedPrivateKeyTemp  String?     @map("encrypted_private_key_temp")
+  recoveryKeyEncryptedSMK  String?     @map("recovery_key_encrypted_smk")
+  recoveryKeyGeneratedAt   DateTime?   @map("recovery_key_generated_at") @db.Timestamptz(6)
+  invitePhone              String?     @map("invite_phone") @db.VarChar(50)
+  isActive                 Boolean     @default(true) @map("is_active")
+  publicKey                String?     @map("public_key")
+  keysLastRotatedAt        DateTime?   @map("keys_last_rotated_at") @db.Timestamptz(6) // When member keys were last rotated
+  updatedAt                DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  myVault                  MyVault     @relation(fields: [myVaultId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user                     User        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([myVaultId, userId])
+  @@index([myVaultId], map: "ix_my_vault_members_my_vault_id")
+  @@index([userId], map: "ix_my_vault_members_user_id")
+  @@index([role], map: "ix_my_vault_members_role")
+  @@map("my_vault_members")
+}
+
 model FamilyVaultItem {
   id            String      @id @default(uuid()) @db.Uuid
   familyVaultId String      @map("family_vault_id") @db.Uuid
   category      String      @db.VarChar(50)
   title         String      @db.VarChar(255)
+  encryptedData Bytes?      @map("encrypted_data")
   s3Key         String?     @map("s3_key") @db.VarChar(512)
   iv            String?     @map("iv") @db.VarChar(32)
   tags          String[]    @db.VarChar
@@ -182,6 +245,7 @@ model Nominee {
   unlockCompletedAt                              DateTime?              @map("unlock_completed_at") @db.Timestamptz(6)
   createdAt                                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                                      DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  keysLastRotatedAt                              DateTime?              @map("keys_last_rotated_at") @db.Timestamptz(6) // When nominee keys were last rotated
   vaultType                                      String                 @map("vault_type") @db.VarChar(20)
   vaultId                                        String?                @map("vault_id") @db.Uuid
   myVaultId                                      String?                @map("my_vault_id") @db.Uuid

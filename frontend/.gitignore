@@ -42,3 +42,4 @@ prisma/migrations/
 .storage/
 
 
+frontend/.env.local_vercel

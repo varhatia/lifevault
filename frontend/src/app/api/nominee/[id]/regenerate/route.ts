@@ -39,7 +39,7 @@ export async function PUT(
       );
     }
 
-    // Find nominee and verify ownership
+    // Find nominee and verify user is the vault owner (not just a member)
     const nominee = await prisma.nominee.findFirst({
       where: {
         id: nomineeId,
@@ -57,12 +57,14 @@ export async function PUT(
           select: {
             id: true,
             name: true,
+            ownerId: true, // Check owner
           },
         },
         familyVault: {
           select: {
             id: true,
             name: true,
+            ownerId: true, // Check owner
           },
         },
       },
@@ -73,6 +75,23 @@ export async function PUT(
         { error: 'Nominee not found' },
         { status: 404 }
       );
+    }
+
+    // Verify user is the vault owner (not just a member)
+    if (nominee.vaultType === 'my_vault') {
+      if (nominee.myVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can regenerate nominee keys' },
+          { status: 403 }
+        );
+      }
+    } else if (nominee.vaultType === 'family_vault') {
+      if (nominee.familyVault?.ownerId !== userId) {
+        return NextResponse.json(
+          { error: 'Only the vault owner can regenerate nominee keys' },
+          { status: 403 }
+        );
+      }
     }
 
     // Store/update Part B (server key)
