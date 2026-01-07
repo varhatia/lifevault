@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
-export default function DeviceVerifyPage() {
+function DeviceVerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -87,6 +87,23 @@ export default function DeviceVerifyPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DeviceVerifyPage() {
+  return (
+    <Suspense fallback={
+      <div className="mx-auto max-w-md space-y-6">
+        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="w-12 h-12 text-brand-400 animate-spin" />
+            <p className="text-sm text-slate-300">Loading...</p>
+          </div>
+        </div>
+      </div>
+    }>
+      <DeviceVerifyContent />
+    </Suspense>
   );
 }
 
