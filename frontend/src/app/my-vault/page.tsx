@@ -109,6 +109,8 @@ export default function MyVaultPage() {
     limitType?: "vaults" | "nominees" | "members" | "storage";
     currentCount?: number;
     maxAllowed?: number;
+    currentStorageMB?: number;
+    fileSizeMB?: number;
     message?: string;
   }>({});
   const [showTierTooltip, setShowTierTooltip] = useState(false);
