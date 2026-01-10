@@ -369,7 +369,7 @@ export async function POST(
           metadata: {
             memberId: member.id,
             memberEmail: member.user?.email ?? email ?? null,
-            memberRole: role,
+            memberRole: member.role || 'editor',
           },
           createdAt: now,
         },
