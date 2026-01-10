@@ -54,7 +54,7 @@ const HAS_AWS_CREDENTIALS = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_
 const SHOULD_USE_S3 = !USE_LOCAL_STORAGE && HAS_AWS_CREDENTIALS && (AWS_ENDPOINT_URL || IS_PRODUCTION);
 
 // Initialize S3 client
-let s3Client: S3Client | null = null;
+export let s3Client: S3Client | null = null;
 
 if (SHOULD_USE_S3) {
   try {
