@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Trash2, Shield, Edit, Eye } from "lucide-react";
+import { X, Plus, Trash2 } from "lucide-react";
 import {
   generateRSAKeyPair,
   encryptWithRSAPublicKey,
 } from "@/lib/crypto-rsa";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import { canAddMember } from "@/lib/plan-limits";
 
 type Member = {
   id: string;
@@ -30,6 +32,12 @@ type MemberManagementModalProps = {
   vault: Vault;
   onUpdate: () => void;
   getVaultKeyHex: () => Promise<string | null>; // Function to get plaintext vault key (hex string)
+  onLimitReached?: (
+    limitType: "members",
+    currentCount: number,
+    maxAllowed: number,
+    message: string
+  ) => void;
 };
 
 export default function MemberManagementModal({
@@ -38,13 +46,14 @@ export default function MemberManagementModal({
   vault,
   onUpdate,
   getVaultKeyHex,
+  onLimitReached,
 }: MemberManagementModalProps) {
+  const { plan, usage, refetch } = usePlanUsage();
   const [members, setMembers] = useState<Member[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+91");
-  const [role, setRole] = useState<"admin" | "editor" | "viewer">("viewer");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +103,23 @@ export default function MemberManagementModal({
       return;
     }
 
+    // Check plan limits before proceeding (per-vault, excluding owner)
+    const currentVaultMemberCount = members.length;
+    if (!canAddMember(plan, currentVaultMemberCount)) {
+      const maxAllowed = plan === "free" ? 2 : Infinity;
+      const message =
+        plan === "free"
+          ? "Free plan allows up to 2 members per vault. Please upgrade to LifeVault Plus to add unlimited members."
+          : "Unable to add member. Please contact support.";
+
+      if (onLimitReached) {
+        onLimitReached("members", currentVaultMemberCount, maxAllowed, message);
+      } else {
+        setError(message);
+      }
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -130,7 +156,6 @@ export default function MemberManagementModal({
         body: JSON.stringify({
           email: email.trim(),
           phone: fullPhone,
-          role,
           memberPublicKey: publicKey,
           encryptedSMK: encryptedSMK, // Vault key encrypted with new member's public key
           encryptedPrivateKeyTemp: JSON.stringify(encryptedPrivateKeyTemp), // Private key encrypted with email (temporary)
@@ -138,43 +163,59 @@ export default function MemberManagementModal({
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to add member");
+        let errorData: any = {};
+        try {
+          const text = await res.text();
+          errorData = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+          errorData = { error: `Server error (${res.status} ${res.statusText})` };
+        }
+
+        // Handle member limit errors from API
+        if (errorData.limitReached && errorData.limitType === "members") {
+          const currentCount =
+            errorData.currentCount ?? currentVaultMemberCount;
+          const maxAllowed =
+            errorData.maxAllowed ?? (plan === "free" ? 2 : Infinity);
+          const message =
+            errorData.message ||
+            (plan === "free"
+              ? "Free plan allows up to 2 members per vault. Please upgrade to LifeVault Plus to add unlimited members."
+              : "Unable to add member. Please contact support.");
+
+          if (onLimitReached) {
+            onLimitReached("members", currentCount, maxAllowed, message);
+            // Close the member modal so upgrade modal is visible
+            onClose();
+          } else {
+            setError(message);
+          }
+          return;
+        }
+
+        // For other errors, show the actual error message
+        const errorMessage = errorData.error || errorData.message || `Failed to add member (${res.status})`;
+        throw new Error(errorMessage);
       }
 
       setEmail("");
       setPhone("");
       setCountryCode("+91");
-      setRole("viewer");
       setShowAddForm(false);
-      loadMembers();
+      await loadMembers();
+      await refetch(); // Refresh usage stats so member count/limits stay in sync
       onUpdate();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to add member");
+      console.error("Error adding member:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to add member";
+      setError(errorMessage);
+      // Don't close the form on error - let user see the error and retry
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpdateRole = async (memberId: string, newRole: string) => {
-    try {
-      const res = await fetch(
-        `/api/vaults/my/${vault.id}/members/${memberId}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: newRole }),
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to update role");
-      loadMembers();
-      onUpdate();
-    } catch (error) {
-      console.error("Error updating role:", error);
-      alert("Failed to update member role");
-    }
-  };
 
   const handleRemoveMember = async (memberId: string) => {
     if (!confirm("Are you sure you want to remove this member?")) return;
@@ -194,34 +235,22 @@ export default function MemberManagementModal({
     }
   };
 
-  const getRoleIcon = (role: string) => {
-    switch (role) {
-      case "admin":
-        return <Shield className="w-4 h-4 text-purple-400" />;
-      case "editor":
-        return <Edit className="w-4 h-4 text-blue-400" />;
-      case "viewer":
-        return <Eye className="w-4 h-4 text-green-400" />;
-      default:
-        return null;
-    }
-  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-900 rounded-lg border border-slate-800 w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto">
+      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-2xl p-6 max-h-[80vh] overflow-y-auto shadow-large">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">Manage Members</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <h2 className="text-xl font-bold text-gray-900">Manage Members</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-slate-300">Members</h3>
+            <h3 className="text-sm font-medium text-gray-700">Members</h3>
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="flex items-center gap-2 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm"
@@ -232,11 +261,11 @@ export default function MemberManagementModal({
           </div>
 
           {showAddForm && (
-            <div className="p-4 bg-slate-800 rounded-lg border border-slate-700">
-              <h4 className="text-sm font-medium text-white mb-3">Add New Member</h4>
+            <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Add New Member</h4>
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Email *
                   </label>
                   <input
@@ -245,18 +274,18 @@ export default function MemberManagementModal({
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="member@example.com"
                     required
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-brand-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
                     Phone Number *
                   </label>
                   <div className="flex gap-2">
                     <select
                       value={countryCode}
                       onChange={(e) => setCountryCode(e.target.value)}
-                      className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs text-white focus:border-brand-500 focus:outline-none"
+                      className="w-32 rounded-md border border-gray-300 bg-white px-2 py-2 text-xs text-gray-900 focus:border-brand-500 focus:outline-none"
                     >
                       <option value="+1">🇺🇸 United States (+1)</option>
                       <option value="+44">🇬🇧 United Kingdom (+44)</option>
@@ -277,29 +306,15 @@ export default function MemberManagementModal({
                       placeholder="10-digit phone"
                       maxLength={10}
                       required
-                      className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+                      className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-brand-500 focus:outline-none"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-gray-500 mt-1">
                     Format: country code + 10-digit number
                   </p>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">
-                    Role
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
-                  >
-                    <option value="viewer">Viewer (Read-only)</option>
-                    <option value="editor">Editor (Add/Edit)</option>
-                    <option value="admin">Admin (Full Access)</option>
-                  </select>
-                </div>
                 {error && (
-                  <div className="text-red-400 text-sm">{error}</div>
+                  <div className="text-red-600 text-sm">{error}</div>
                 )}
                 <div className="flex items-center gap-2">
                   <button
@@ -317,7 +332,7 @@ export default function MemberManagementModal({
                       setPhone("");
                       setCountryCode("+91");
                     }}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
                   >
                     Cancel
                   </button>
@@ -330,20 +345,19 @@ export default function MemberManagementModal({
             {members.map((member) => (
               <div
                 key={member.id}
-                className="flex items-center justify-between p-3 bg-slate-800 rounded-lg"
+                className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-soft"
               >
                 <div className="flex items-center gap-3">
-                  {getRoleIcon(member.role)}
                   <div>
-                    <div className="text-white font-medium">
+                    <div className="text-gray-900 font-medium">
                       {member.user.fullName || member.user.email}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 capitalize">
-                        {member.role}
+                      <span className="text-xs text-gray-500">
+                        Member
                       </span>
                       {!member.acceptedAt && (
-                        <span className="text-xs px-2 py-0.5 bg-amber-900/30 text-amber-400 rounded border border-amber-800/50">
+                        <span className="text-xs px-2 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200">
                           Pending Setup
                         </span>
                       )}
@@ -351,18 +365,9 @@ export default function MemberManagementModal({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <select
-                    value={member.role}
-                    onChange={(e) => handleUpdateRole(member.id, e.target.value)}
-                    className="px-2 py-1 bg-slate-900 border border-slate-700 rounded text-white text-sm"
-                  >
-                    <option value="viewer">Viewer</option>
-                    <option value="editor">Editor</option>
-                    <option value="admin">Admin</option>
-                  </select>
                   <button
                     onClick={() => handleRemoveMember(member.id)}
-                    className="p-2 text-red-400 hover:bg-red-400/10 rounded"
+                    className="p-2 text-red-600 hover:bg-red-50 rounded"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

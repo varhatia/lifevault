@@ -3,6 +3,7 @@
 import "../styles/globals.css";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import UserMenu from "./auth/UserMenu";
 import InactivityMonitor from "./components/InactivityMonitor";
 import { useAuth } from "@/lib/hooks/useAuth";
@@ -29,48 +30,45 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-50 antialiased">
+      <body className="min-h-screen bg-white text-gray-900 antialiased">
         <InactivityMonitor />
-        <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6">
-          <header className="flex items-center justify-between border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold">
+        <div className="mx-auto flex min-h-screen max-w-7xl flex-col">
+          <header className="flex items-center justify-between border-b border-gray-200 bg-white sticky top-0 z-50 px-6 py-3">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-500 text-sm font-semibold text-white">
                 LV
               </div>
               <div>
-                <div className="text-lg font-semibold tracking-tight">
+                <div className="text-lg font-semibold tracking-tight text-gray-900">
                   LifeVault
                 </div>
-                <div className="text-xs text-slate-400">
-                  Secure digital personal and family vault
-                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-slate-300">
-              <nav className="flex gap-4">
+            </Link>
+            <div className="flex items-center gap-6 text-sm">
+              <nav className="hidden md:flex gap-5">
                 {/* For authenticated users - show when not loading and authenticated */}
                 {!authLoading && isAuthenticated && (
                   <>
-                    <a href="/" onClick={(e) => handleNav(e, "/")} className="hover:text-white">
+                    <a href="/" onClick={(e) => handleNav(e, "/")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       Home
                     </a>
-                    <a href="/actions" onClick={(e) => handleNav(e, "/actions")} className="hover:text-white">
+                    <a href="/actions" onClick={(e) => handleNav(e, "/actions")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       Review Mode
                     </a>
-                    <a href="/my-vault" onClick={(e) => handleNav(e, "/my-vault")} className="hover:text-white">
+                    <a href="/my-vault" onClick={(e) => handleNav(e, "/my-vault")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       My Vault
                     </a>
-                    <a href="/activity" onClick={(e) => handleNav(e, "/activity")} className="hover:text-white">
+                    <a href="/activity" onClick={(e) => handleNav(e, "/activity")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       Activity
                     </a>
-                    <a href="/my-account" onClick={(e) => handleNav(e, "/my-account")} className="hover:text-white">
+                    <a href="/my-account" onClick={(e) => handleNav(e, "/my-account")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       My Account
                     </a>
                   </>
                 )}
                 {/* For non-authenticated users - show when not loading and not authenticated */}
                 {!authLoading && !isAuthenticated && (
-                  <a href="/nominee-access" className="hover:text-white">
+                  <a href="/nominee-access" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                     Nominee Access
                   </a>
                 )}
@@ -78,7 +76,7 @@ export default function RootLayout({
               <UserMenu />
             </div>
           </header>
-          <main className="flex-1 py-6">{children}</main>
+          <main className="flex-1 bg-gray-50 py-8 px-6">{children}</main>
         </div>
       </body>
     </html>

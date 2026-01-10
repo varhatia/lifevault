@@ -60,18 +60,18 @@ function VerifyEmailPendingContent() {
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Check Your Email</h1>
-        <p className="mt-2 text-xs text-slate-300">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Check Your Email</h1>
+        <p className="mt-2 text-xs text-gray-600">
           Verify your email to complete onboarding and setting up your digital vault.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 space-y-4">
+      <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4 shadow-soft">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5">
-            <div className="h-8 w-8 rounded-full bg-brand-600/20 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-full bg-brand-50 flex items-center justify-center">
               <svg
-                className="h-5 w-5 text-brand-400"
+                className="h-5 w-5 text-brand-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -86,14 +86,14 @@ function VerifyEmailPendingContent() {
             </div>
           </div>
           <div className="flex-1 space-y-2">
-            <p className="text-sm text-slate-200">
-              We've sent a verification link to <strong className="text-white">{email || "your email"}</strong>
+            <p className="text-sm text-gray-700">
+              We've sent a verification link to <strong className="text-gray-900">{email || "your email"}</strong>
             </p>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-gray-500">
               Click the link in the email to verify your account and continue setting up your vault.
             </p>
-            <div className="rounded-md bg-amber-900/20 border border-amber-800/50 p-3 mt-3">
-              <p className="text-xs text-amber-200">
+            <div className="rounded-md bg-amber-50 border border-amber-200 p-3 mt-3">
+              <p className="text-xs text-amber-700">
                 ⏱️ <strong>Important:</strong> The verification link expires in <strong>30 minutes</strong>. 
                 If you don't receive the email, check your spam folder or resend it below.
               </p>
@@ -101,18 +101,18 @@ function VerifyEmailPendingContent() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-slate-800">
-          <p className="text-xs text-slate-400 mb-3">
+        <div className="pt-4 border-t border-gray-200">
+          <p className="text-xs text-gray-600 mb-3">
             Didn't receive the email?
           </p>
           <form onSubmit={handleResend} className="space-y-3">
             <div className="space-y-1 text-xs">
-              <label className="block text-slate-200">Email</label>
+              <label className="block text-gray-700">Email</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-brand-500 focus:outline-none"
                 placeholder="you@example.com"
                 required
               />
@@ -132,7 +132,7 @@ function VerifyEmailPendingContent() {
           {message && (
             <p
               className={`mt-3 text-xs ${
-                message.includes("sent") ? "text-green-400" : "text-red-400"
+                message.includes("sent") ? "text-green-600" : "text-red-600"
               }`}
             >
               {message}
@@ -142,13 +142,13 @@ function VerifyEmailPendingContent() {
       </div>
 
       <div className="text-center space-y-2">
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-gray-600">
           Already verified?{" "}
-          <a href="/auth/login" className="text-brand-400 hover:text-brand-300">
+          <a href="/auth/login" className="text-brand-600 hover:text-brand-700">
             Log in
           </a>
         </p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-gray-500">
           Need help? Check your spam folder or contact support.
         </p>
       </div>
@@ -161,8 +161,8 @@ export default function VerifyEmailPendingPage() {
     <Suspense fallback={
       <div className="mx-auto max-w-md space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Check Your Email</h1>
-          <p className="mt-2 text-xs text-slate-300">Loading...</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Check Your Email</h1>
+          <p className="mt-2 text-xs text-gray-600">Loading...</p>
         </div>
       </div>
     }>

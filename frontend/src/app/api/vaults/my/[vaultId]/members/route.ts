@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import prisma from '@/lib/prisma';
 import { randomUUID } from 'crypto';
 import { sendMyVaultInviteEmail } from '@/lib/api/email';
+import { canAddMember, type SubscriptionPlan } from '@/lib/plan-limits';
 
 /**
  * @route   GET /api/vaults/my/[vaultId]/members
@@ -129,10 +130,10 @@ export async function GET(
  * {
  *   email?: string,
  *   phone?: string,
- *   role: "admin" | "editor" | "viewer",
  *   memberPublicKey: string, // New member's RSA public key (PEM format)
  *   encryptedSMK: string,     // SMK encrypted with new member's public key (base64)
  * }
+ * Note: Role system removed - all members have full access except adding members/nominees
  */
 export async function POST(
   req: NextRequest,
@@ -168,15 +169,16 @@ export async function POST(
       },
     });
 
-    if (!isOwner && (!membership || membership.role !== 'admin')) {
+    // Only owner can add members (members cannot add other members)
+    if (!isOwner) {
       return NextResponse.json(
-        { error: 'Only owners and admins can add members' },
+        { error: 'Only vault owners can add members' },
         { status: 403 }
       );
     }
 
     const body = await req.json();
-    const { email, phone, role, memberPublicKey, encryptedSMK, encryptedPrivateKey, encryptedPrivateKeyTemp } = body;
+    const { email, phone, memberPublicKey, encryptedSMK, encryptedPrivateKey, encryptedPrivateKeyTemp } = body;
 
     // Validation: Both email and phone are required
     if (!email || !email.trim()) {
@@ -202,18 +204,49 @@ export async function POST(
       );
     }
 
-    if (!['admin', 'editor', 'viewer'].includes(role)) {
-      return NextResponse.json(
-        { error: 'Invalid role. Must be admin, editor, or viewer' },
-        { status: 400 }
-      );
-    }
+    // Role system removed - all members have full access except adding members/nominees
 
     if (!memberPublicKey || !encryptedSMK) {
       return NextResponse.json(
         { error: 'Member public key and encrypted SMK are required' },
         { status: 400 }
       );
+    }
+
+    // Check plan limits for members
+    // Only check if user is owner
+    // Member limit is per-vault: each vault can have up to 2 members (free plan)
+    if (isOwner) {
+      const plan = ((user as any).subscriptionPlan || "free") as SubscriptionPlan;
+      
+      // Count members in THIS specific vault only (excluding owner)
+      // Only count active members who are not the owner
+      const vaultMemberCount = await prisma.myVaultMember.count({
+        where: {
+          myVaultId: vaultId,
+          isActive: true,
+          userId: { not: userId }, // Exclude owner
+        },
+      });
+
+      // Debug logging (remove in production if needed)
+      console.log(`[Member Limit Check] Plan: ${plan}, Vault: ${vaultId}, Current Members: ${vaultMemberCount}, Can Add: ${canAddMember(plan, vaultMemberCount)}`);
+
+      if (!canAddMember(plan, vaultMemberCount)) {
+        return NextResponse.json(
+          {
+            error: 'Member limit reached',
+            limitReached: true,
+            limitType: 'members',
+            currentCount: vaultMemberCount,
+            maxAllowed: plan === "free" ? 2 : Infinity,
+            message: plan === "free"
+              ? `Free plan allows up to 2 members per vault. You currently have ${vaultMemberCount} member(s). Please upgrade to LifeVault Plus to add unlimited members.`
+              : 'Unable to add member. Please contact support.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Check if user already exists (by email or phone)
@@ -244,7 +277,7 @@ export async function POST(
           const member = await prisma.myVaultMember.update({
             where: { id: existingMember.id },
             data: {
-              role,
+              // Role system removed - keep existing role for backward compatibility
               publicKey: memberPublicKey,
               encryptedSharedMasterKey: encryptedSMK,
               encryptedPrivateKey: encryptedPrivateKey || existingMember.encryptedPrivateKey,
@@ -289,11 +322,13 @@ export async function POST(
     const inviteToken = randomUUID();
 
     // Create my vault member record (pending setup - member needs to set master password)
+    // Role system removed - all members have full access except adding members/nominees
+    // Set default role for backward compatibility (not used for permissions)
     const member = await prisma.myVaultMember.create({
       data: {
         myVaultId: vaultId,
         userId: targetUser.id,
-        role,
+        role: 'editor', // Default role for backward compatibility (not used for permissions)
         publicKey: memberPublicKey,
         encryptedSharedMasterKey: encryptedSMK,
         encryptedPrivateKey: null, // Member will set this when they accept invitation and set master password
@@ -377,4 +412,6 @@ export async function POST(
     );
   }
 }
+
+
 

@@ -193,7 +193,7 @@ export default function AddItemModal({
             >
               <optgroup label="Must Have">
                 <option value="identity-vital">Identity & Vital Records</option>
-                <option value="finance-investments">Finance → Bank Accounts & Investments</option>
+                <option value="finance-investments">Banking, Investments & Tax Records</option>
                 <option value="insurance">Insurance</option>
               </optgroup>
               <optgroup label="Good to Have">

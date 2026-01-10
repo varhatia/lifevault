@@ -51,3 +51,6 @@ BEGIN
         RAISE NOTICE 'Column recovery_key_generated_at already exists';
     END IF;
 END $$;
+
+
+

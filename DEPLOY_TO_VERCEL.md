@@ -117,3 +117,6 @@ The `vercel.json` file includes cron job configuration:
 - Check `package.json` for all required dependencies
 - Ensure `postinstall` script runs `prisma generate`
 
+
+
+

@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { evaluatePasswordStrength } from "@/lib/passwordStrength";
+import { ArrowRight, Shield, Lock } from "lucide-react";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -126,172 +128,222 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
-        <p className="mt-2 text-xs text-slate-300">
-          This account identifies you on the server. Your vault contents are still
-          encrypted end-to-end with a master password you’ll enter on first use.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Full name</label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            placeholder="Ada Lovelace"
-          />
-        </div>
-
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            placeholder="you@example.com"
-            required
-          />
-        </div>
-
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Phone Number (optional)</label>
-          <div className="flex gap-2">
-            <select
-              value={countryCode}
-              onChange={(e) => setCountryCode(e.target.value)}
-              className="w-32 rounded-md border border-slate-700 bg-slate-900 px-2 py-2 text-xs text-white focus:border-brand-500 focus:outline-none"
-            >
-              <option value="+1">🇺🇸 United States (+1)</option>
-              <option value="+44">🇬🇧 United Kingdom (+44)</option>
-              <option value="+91">🇮🇳 India (+91)</option>
-              <option value="+61">🇦🇺 Australia (+61)</option>
-              <option value="+65">🇸🇬 Singapore (+65)</option>
-              <option value="+971">🇦🇪 UAE (+971)</option>
-            </select>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="flex-1 rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-              maxLength={10}
-              placeholder="10-digit phone"
-            />
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">
-            We’ll use this for account recovery or notifications. Format: country code + 10-digit number.
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <Link href="/" className="inline-block mb-4">
+            <h1 className="text-2xl font-semibold text-gray-900">LifeVault</h1>
+          </Link>
+          <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Create your account</h2>
+          <p className="mt-2 text-base text-gray-600">
+            Start organizing and protecting your most important documents
           </p>
         </div>
 
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Date of Birth</label>
-          <input
-            type="date"
-            value={dateOfBirth}
-            onChange={(e) => setDateOfBirth(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
-          />
-          <p className="text-[10px] text-slate-400 mt-1">Must be 18 years or older (optional)</p>
+        {/* Security Notice */}
+        <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+          <div className="flex items-start gap-3">
+            <Shield className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-blue-900 font-medium mb-1">End-to-end encrypted</p>
+              <p className="text-xs text-blue-700">
+                Your account identifies you on the server. Your vault contents are encrypted end-to-end with a master password you'll set up after verification.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Password</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            placeholder="At least 12 characters with mixed case, numbers, and symbols"
-            required
-          />
-          
-          {/* Password Strength Indicator */}
-          {password && passwordStrength && (
-            <div className="mt-2 space-y-2">
-              {/* Strength Bar */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-300 ${
-                      passwordStrength.color === "red"
-                        ? "bg-red-500"
-                        : passwordStrength.color === "orange"
-                        ? "bg-orange-500"
-                        : passwordStrength.color === "yellow"
-                        ? "bg-yellow-500"
-                        : "bg-green-500"
-                    }`}
-                    style={{ width: `${passwordStrength.percentage}%` }}
-                  />
-                </div>
-                <span
-                  className={`text-[10px] font-medium ${
-                    passwordStrength.color === "red"
-                      ? "text-red-400"
-                      : passwordStrength.color === "orange"
-                      ? "text-orange-400"
-                      : passwordStrength.color === "yellow"
-                      ? "text-yellow-400"
-                      : "text-green-400"
-                  }`}
-                >
-                  {passwordStrength.label}
-                </span>
-              </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-5 rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Full name
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="Ada Lovelace"
+            />
+          </div>
 
-              {/* Requirements Checklist */}
-              <div className="space-y-1">
-                {passwordStrength.requirements.map((req, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-[10px]">
-                    <span className={req.met ? "text-green-400" : "text-slate-500"}>
-                      {req.met ? "✓" : "○"}
-                    </span>
-                    <span className={req.met ? "text-slate-300" : "text-slate-500"}>
-                      {req.message}
-                    </span>
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Phone Number <span className="text-gray-500 text-xs font-normal">(optional)</span>
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="w-32 rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="+1">🇺🇸 +1</option>
+                <option value="+44">🇬🇧 +44</option>
+                <option value="+91">🇮🇳 +91</option>
+                <option value="+61">🇦🇺 +61</option>
+                <option value="+65">🇸🇬 +65</option>
+                <option value="+971">🇦🇪 +971</option>
+              </select>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                maxLength={10}
+                placeholder="10-digit phone"
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Used for account recovery and notifications
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Date of Birth <span className="text-gray-500 text-xs font-normal">(optional)</span>
+            </label>
+            <input
+              type="date"
+              value={dateOfBirth}
+              onChange={(e) => setDateOfBirth(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+            />
+            <p className="mt-1 text-xs text-gray-500">Must be 18 years or older</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Password <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="At least 12 characters with mixed case, numbers, and symbols"
+              required
+            />
+            
+            {/* Password Strength Indicator */}
+            {password && passwordStrength && (
+              <div className="mt-3 space-y-2">
+                {/* Strength Bar */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        passwordStrength.color === "red"
+                          ? "bg-red-500"
+                          : passwordStrength.color === "orange"
+                          ? "bg-orange-500"
+                          : passwordStrength.color === "yellow"
+                          ? "bg-yellow-500"
+                          : "bg-green-500"
+                      }`}
+                      style={{ width: `${passwordStrength.percentage}%` }}
+                    />
                   </div>
-                ))}
+                  <span
+                    className={`text-xs font-medium ${
+                      passwordStrength.color === "red"
+                        ? "text-red-600"
+                        : passwordStrength.color === "orange"
+                        ? "text-orange-600"
+                        : passwordStrength.color === "yellow"
+                        ? "text-yellow-600"
+                        : "text-green-600"
+                    }`}
+                  >
+                    {passwordStrength.label}
+                  </span>
+                </div>
+
+                {/* Requirements Checklist */}
+                <div className="space-y-1.5">
+                  {passwordStrength.requirements.map((req, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs">
+                      <span className={req.met ? "text-green-600" : "text-gray-400"}>
+                        {req.met ? "✓" : "○"}
+                      </span>
+                      <span className={req.met ? "text-gray-600" : "text-gray-400"}>
+                        {req.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-900 mb-1.5">
+              Confirm password <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 border border-red-200 p-3">
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
+
+          <button
+            type="submit"
+            disabled={loading || (passwordStrength ? !passwordStrength.isValid : false)}
+            className="w-full rounded-md bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                Creating account...
+              </>
+            ) : (
+              <>
+                Create account
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+
+          <p className="text-center text-sm text-gray-600">
+            Already have an account?{" "}
+            <Link href="/auth/login" className="font-medium text-brand-600 hover:text-brand-700">
+              Log in
+            </Link>
+          </p>
+        </form>
+
+        {/* Footer Note */}
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-500">
+            By creating an account, you agree to our Terms of Service and Privacy Policy
+          </p>
         </div>
-
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Confirm password</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        {error && <p className="text-xs text-red-400">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={loading || (passwordStrength ? !passwordStrength.isValid : false)}
-          className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "Creating account..." : "Sign up"}
-        </button>
-
-        <p className="text-xs text-slate-400">
-          Already have an account?{" "}
-          <a href="/auth/login" className="text-brand-400 hover:text-brand-300">
-            Log in
-          </a>
-        </p>
-      </form>
+      </div>
     </div>
   );
 }
-
-

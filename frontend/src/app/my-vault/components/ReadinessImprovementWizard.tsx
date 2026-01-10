@@ -192,14 +192,14 @@ export default function ReadinessImprovementWizard({
 
   if (actions.length === 0) {
     return (
-      <div className="rounded-xl border border-brand-500/30 bg-brand-500/5 p-4">
+      <div className="rounded-lg border border-brand-200 bg-brand-50 p-4">
         <div className="flex items-center gap-3">
-          <Check className="w-5 h-5 text-brand-400" />
+          <Check className="w-5 h-5 text-brand-500" />
           <div>
-            <p className="text-sm font-medium text-brand-300">
+            <p className="text-sm font-medium text-brand-700">
               Excellent! You're maximizing your readiness score.
             </p>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-gray-600 mt-1">
               Keep maintaining your vault with regular reviews.
             </p>
           </div>
@@ -210,19 +210,19 @@ export default function ReadinessImprovementWizard({
 
   if (!expanded) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-soft">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h3 className="text-sm font-semibold text-white mb-1">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">
               Improve Your Readiness Score
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-gray-600">
               {actions.length} action{actions.length !== 1 ? 's' : ''} available to improve your score by up to {totalPotentialPoints} points
             </p>
           </div>
           <button
             onClick={() => setExpanded(true)}
-            className="ml-4 rounded-md bg-brand-600 px-4 py-2 text-xs font-medium text-white hover:bg-brand-700 transition-colors flex items-center gap-2"
+            className="ml-4 rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white hover:bg-brand-600 transition-colors flex items-center gap-2"
           >
             View Actions
             <ArrowRight className="w-4 h-4" />
@@ -233,20 +233,20 @@ export default function ReadinessImprovementWizard({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-white mb-1">
+          <h2 className="text-xl font-semibold text-gray-900 mb-1">
             Improve Your Readiness Score
           </h2>
-          <p className="text-sm text-slate-400">
-            Complete these actions to increase your score from <span className="font-medium text-brand-400">{readinessScore}</span> to up to <span className="font-medium text-brand-400">{potentialScore}</span>
+          <p className="text-sm text-gray-600">
+            Complete these actions to increase your score from <span className="font-medium text-brand-500">{readinessScore}</span> to up to <span className="font-medium text-brand-500">{potentialScore}</span>
           </p>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -254,33 +254,33 @@ export default function ReadinessImprovementWizard({
       </div>
 
       {/* Score Improvement Preview */}
-      <div className="mb-6 p-4 rounded-lg bg-slate-800/50 border border-slate-700">
+      <div className="mb-6 p-4 rounded-lg bg-gray-50 border border-gray-200">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-slate-400">Current Score</span>
-          <span className="text-xs text-slate-400">Potential Score</span>
+          <span className="text-xs text-gray-600 font-medium">Current Score</span>
+          <span className="text-xs text-gray-600 font-medium">Potential Score</span>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <div className="h-2 w-full rounded-full bg-slate-700 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-300"
+                className="h-full rounded-full bg-brand-500 transition-all duration-300"
                 style={{ width: `${readinessScore}%` }}
               />
             </div>
           </div>
-          <div className="text-xs font-medium text-slate-300 min-w-[3rem] text-center">
+          <div className="text-xs font-medium text-gray-900 min-w-[3rem] text-center">
             {readinessScore} → {potentialScore}
           </div>
           <div className="flex-1">
-            <div className="h-2 w-full rounded-full bg-slate-700 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-300"
+                className="h-full rounded-full bg-brand-500 transition-all duration-300"
                 style={{ width: `${potentialScore}%` }}
               />
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-500 mt-2 text-center">
+        <p className="text-xs text-gray-600 mt-2 text-center font-medium">
           +{totalPotentialPoints} points available
         </p>
       </div>
@@ -294,24 +294,24 @@ export default function ReadinessImprovementWizard({
             disabled={action.completed}
             className={`w-full text-left rounded-lg border p-4 transition-all ${
               action.completed
-                ? "border-brand-500/50 bg-brand-500/10 cursor-default opacity-60"
+                ? "border-brand-200 bg-brand-50 cursor-default opacity-60"
                 : action.priority === "high"
-                ? "border-amber-500/50 bg-amber-500/5 hover:border-amber-500/70 hover:bg-amber-500/10 cursor-pointer"
-                : "border-slate-800 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900 cursor-pointer"
+                ? "border-amber-200 bg-amber-50 hover:border-amber-300 hover:shadow-soft cursor-pointer"
+                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-soft cursor-pointer"
             }`}
           >
             <div className="flex items-start gap-4">
               <div className={`flex-shrink-0 mt-0.5 ${
-                action.completed ? "text-brand-400" : 
-                action.priority === "high" ? "text-amber-400" : "text-slate-400"
+                action.completed ? "text-brand-500" : 
+                action.priority === "high" ? "text-amber-600" : "text-gray-400"
               }`}>
                 {action.completed ? (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500/20">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 text-white">
                     <Check className="h-4 w-4" />
                   </div>
                 ) : (
                   <div className={`flex h-6 w-6 items-center justify-center rounded-full ${
-                    action.priority === "high" ? "bg-amber-500/20" : "bg-slate-800"
+                    action.priority === "high" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"
                   } text-xs font-medium`}>
                     {index + 1}
                   </div>
@@ -319,38 +319,38 @@ export default function ReadinessImprovementWizard({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`${action.completed ? "text-brand-400" : 
-                    action.priority === "high" ? "text-amber-400" : "text-slate-300"
+                  <div className={`${action.completed ? "text-brand-500" : 
+                    action.priority === "high" ? "text-amber-600" : "text-gray-600"
                   }`}>
                     {action.icon}
                   </div>
                   <h3 className={`text-sm font-semibold ${
-                    action.completed ? "text-brand-300" : "text-white"
+                    action.completed ? "text-brand-600" : "text-gray-900"
                   }`}>
                     {action.title}
                   </h3>
                   {action.priority === "high" && !action.completed && (
-                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400 font-medium">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700 font-medium">
                       High Priority
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-400 mb-2">
+                <p className="text-xs text-gray-600 mb-2">
                   {action.description}
                 </p>
                 <div className="flex items-center gap-3 text-xs">
                   <span className={`font-medium ${
-                    action.completed ? "text-brand-400" : "text-slate-500"
+                    action.completed ? "text-brand-600" : "text-gray-500"
                   }`}>
                     +{action.points} points
                   </span>
                   {action.completed && (
-                    <span className="text-brand-400">✓ Completed</span>
+                    <span className="text-brand-600 font-medium">✓ Completed</span>
                   )}
                 </div>
               </div>
               {!action.completed && (
-                <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
+                <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
               )}
             </div>
           </button>
@@ -358,8 +358,8 @@ export default function ReadinessImprovementWizard({
       </div>
 
       {actions.length > 0 && (
-        <div className="mt-6 p-4 rounded-lg bg-slate-800/50 border border-slate-700">
-          <p className="text-xs text-slate-400 text-center">
+        <div className="mt-6 p-4 rounded-lg bg-gray-50 border border-gray-200">
+          <p className="text-xs text-gray-600 text-center">
             💡 Tip: Focus on high-priority actions first for maximum impact on your readiness score.
           </p>
         </div>
@@ -367,4 +367,6 @@ export default function ReadinessImprovementWizard({
     </div>
   );
 }
+
+
 

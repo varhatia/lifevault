@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromRequest } from '@/lib/api/auth';
+import { canAddNominee, SubscriptionPlan } from '@/lib/plan-limits';
 import prisma from '@/lib/prisma';
 import { storePartB, hasPartB } from '@/lib/api/key-storage';
 
@@ -312,6 +313,51 @@ export async function POST(req: NextRequest) {
         console.error('Error checking for duplicate nominee:', queryError);
         // Don't fail the entire request if duplicate check fails - just log it and continue
       }
+    }
+
+    // Check plan limits for nominees
+    const plan = ((user as any).subscriptionPlan || "free") as SubscriptionPlan;
+    const currentNomineeCount = await prisma.nominee.count({
+      where: {
+        userId: userId,
+        isActive: true,
+      },
+    });
+
+    // Get nominee count for this specific vault
+    let vaultNomineeCount = 0;
+    if (vaultType === 'my_vault') {
+      vaultNomineeCount = await prisma.nominee.count({
+        where: {
+          userId: userId,
+          myVaultId: vaultId,
+          isActive: true,
+        },
+      });
+    } else if (vaultType === 'family_vault') {
+      vaultNomineeCount = await prisma.nominee.count({
+        where: {
+          userId: userId,
+          familyVaultId: vaultId,
+          isActive: true,
+        },
+      });
+    }
+
+    if (!canAddNominee(plan, currentNomineeCount, vaultNomineeCount)) {
+      return NextResponse.json(
+        {
+          error: 'Nominee limit reached',
+          limitReached: true,
+          limitType: 'nominees',
+          currentCount: currentNomineeCount,
+          maxAllowed: plan === "free" ? 1 : Infinity,
+          message: plan === "free" 
+            ? 'Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees.'
+            : 'Unable to add nominee. Please contact support.',
+        },
+        { status: 403 }
+      );
     }
 
     // Store Part B if not already stored (first nominee) or if key rotation is needed

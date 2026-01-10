@@ -125,3 +125,6 @@ const freshnessPoints =
 - 90-day rotation window is recommended for optimal security
 - Readiness score will incentivize regular rotation through points system
 
+
+
+

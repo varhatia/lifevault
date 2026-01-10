@@ -147,91 +147,119 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Log in</h1>
-        <p className="mt-2 text-xs text-slate-300">
-          Log into your LifeVault account. Your vault contents remain encrypted
-          end-to-end and require your master password on the MyVault screen.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-        <div className="space-y-1 text-xs">
-          <label className="block text-slate-200">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            placeholder="you@example.com"
-            required
-          />
-        </div>
-
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center justify-between">
-            <label className="block text-slate-200">Password</label>
-            <a href="/auth/forgot-password" className="text-brand-400 hover:text-brand-300 text-xs">
-              Forgot password?
-            </a>
-          </div>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
-            required
-          />
-        </div>
-
-        {error && (
-          <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-3">
-            <p className="text-xs text-red-400">{error}</p>
-          </div>
-        )}
-
-        {deviceAuthMessage && (
-          <div className="rounded-lg border border-blue-500/50 bg-blue-500/10 p-3">
-            <p className="text-xs text-blue-300 mb-2">{deviceAuthMessage}</p>
-            <div className="flex items-center justify-between">
-              <button
-                type="button"
-                onClick={requestDeviceAuthorization}
-                disabled={deviceAuthLoading}
-                className="text-xs text-brand-400 hover:text-brand-300 underline"
-              >
-                {deviceAuthLoading ? "Sending..." : "Resend authorization email"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setDeviceAuthMessage(null);
-                  setRequiresDeviceAuth(false);
-                }}
-                className="text-xs text-slate-400 hover:text-slate-300 underline"
-              >
-                Dismiss
-              </button>
+    <div className="flex min-h-[calc(100vh-200px)] items-center justify-center">
+      <div className="w-full max-w-md">
+        <div className="mb-8 text-center">
+          <div className="mb-6 flex justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-brand-500 text-base font-semibold text-white">
+              LV
             </div>
           </div>
-        )}
+          <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to your LifeVault account
+          </p>
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-        >
-          {loading ? "Logging in..." : "Log in"}
-        </button>
+        <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-8 shadow-soft">
+          <div className="space-y-2">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="you@example.com"
+              required
+              autoFocus
+            />
+          </div>
 
-        <p className="text-xs text-slate-400">
-          New to LifeVault?{" "}
-          <a href="/auth/signup" className="text-brand-400 hover:text-brand-300">
-            Create an account
-          </a>
-        </p>
-      </form>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
+              <a 
+                href="/auth/forgot-password" 
+                className="text-sm text-brand-500 hover:text-brand-600 transition-colors"
+              >
+                Forgot password?
+              </a>
+            </div>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          {deviceAuthMessage && (
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3">
+              <p className="text-sm text-blue-700 mb-3">{deviceAuthMessage}</p>
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={requestDeviceAuthorization}
+                  disabled={deviceAuthLoading}
+                  className="text-sm text-brand-500 hover:text-brand-600 transition-colors disabled:opacity-50"
+                >
+                  {deviceAuthLoading ? "Sending..." : "Resend authorization email"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeviceAuthMessage(null);
+                    setRequiresDeviceAuth(false);
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-md bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? "Signing in..." : "Sign in"}
+          </button>
+
+          <div className="pt-4 text-center">
+            <p className="text-sm text-gray-600">
+              Don't have an account?{" "}
+              <a 
+                href="/auth/signup" 
+                className="font-medium text-brand-500 hover:text-brand-600 transition-colors"
+              >
+                Sign up
+              </a>
+            </p>
+          </div>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs text-gray-500">
+            Your vault contents remain encrypted end-to-end and require your master password on the MyVault screen.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

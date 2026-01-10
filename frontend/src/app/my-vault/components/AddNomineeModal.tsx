@@ -8,6 +8,8 @@ import {
   deriveKeyFromPassword,
   encryptWithAes,
 } from "@/lib/crypto";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import { canAddNominee } from "@/lib/plan-limits";
 
 type Nominee = {
   id: string;
@@ -29,6 +31,7 @@ type AddNomineeModalProps = {
   vaultName?: string; // Vault name for display
   getMasterPassword: () => Promise<string | null>; // Function to get master password for key export
   getVaultKeyHex?: () => Promise<string | null>; // Optional: Function to get vault key hex directly
+  onLimitReached?: (limitType: "nominees", currentCount: number, maxAllowed: number, message: string) => void; // Callback when limit is reached
 };
 
 export default function AddNomineeModal({
@@ -40,7 +43,9 @@ export default function AddNomineeModal({
   vaultName,
   getMasterPassword,
   getVaultKeyHex,
+  onLimitReached,
 }: AddNomineeModalProps) {
+  const { plan, usage, refetch: refetchUsage } = usePlanUsage();
   const [nominees, setNominees] = useState<Nominee[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingNominees, setLoadingNominees] = useState(true);
@@ -367,6 +372,24 @@ export default function AddNomineeModal({
           data,
           url: res.url 
         });
+        // Check if it's a limit error
+        if (data.limitReached) {
+          // Show upgrade modal if callback provided
+          if (onLimitReached) {
+            onLimitReached(
+              "nominees",
+              data.currentCount || usage.nomineeCount,
+              data.maxAllowed || (plan === "free" ? 1 : Infinity),
+              data.message || "Nominee limit reached"
+            );
+            setShowAddForm(false);
+            resetForm();
+            // Close the nominee modal so the upgrade modal is fully visible
+            onClose();
+            return; // Don't show error, upgrade modal handles it
+          }
+          throw new Error(data.message || "Nominee limit reached");
+        }
         throw new Error(data.error || `Failed to add nominee (${res.status})`);
       }
 
@@ -378,6 +401,7 @@ export default function AddNomineeModal({
 
       // Success - reload nominees and reset form, but keep modal open
       await loadNominees();
+      await refetchUsage(); // Refresh usage stats
       resetForm();
       setShowAddForm(false);
       
@@ -513,13 +537,13 @@ export default function AddNomineeModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-slate-900 rounded-lg border border-slate-800 w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto shadow-large">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-white">Nominees{vaultName ? ` for ${vaultName}` : " for My Vault"}</h2>
-            <p className="text-sm text-slate-400 mt-1">Manage nominees for this vault</p>
+            <h2 className="text-xl font-bold text-gray-900">Nominees{vaultName ? ` for ${vaultName}` : " for My Vault"}</h2>
+            <p className="text-sm text-gray-600 mt-1">Manage nominees for this vault</p>
           </div>
-          <button onClick={handleClose} className="text-slate-400 hover:text-white">
+          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -527,25 +551,25 @@ export default function AddNomineeModal({
         {/* View Key Modal */}
         {viewingKey && viewingKeyId && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-2xl p-6">
+            <div className="bg-white rounded-lg border border-gray-200 w-full max-w-2xl p-6 shadow-large">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-white">Encrypted Key Part C</h3>
+                <h3 className="text-lg font-bold text-gray-900">Encrypted Key Part C</h3>
                 <button
                   onClick={() => {
                     setViewingKey(null);
                     setViewingKeyId(null);
                   }}
-                  className="text-slate-400 hover:text-white"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
               <div className="space-y-4">
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-gray-600">
                   Share this encrypted key part with your nominee through a secure channel. They will also need the decryption password.
                 </p>
-                <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
-                  <pre className="text-xs text-slate-300 font-mono break-all whitespace-pre-wrap">
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-300">
+                  <pre className="text-xs text-gray-700 font-mono break-all whitespace-pre-wrap">
                     {viewingKey}
                   </pre>
                 </div>
@@ -571,7 +595,7 @@ export default function AddNomineeModal({
                       setViewingKey(null);
                       setViewingKeyId(null);
                     }}
-                    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
                   >
                     Close
                   </button>
@@ -585,11 +609,35 @@ export default function AddNomineeModal({
         {!showAddForm && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-gray-900">
                 Nominees ({nominees.length})
               </h3>
               <button
-                onClick={() => setShowAddForm(true)}
+                onClick={() => {
+                  // Check limits before showing form
+                  const vaultNomineeCount = nominees.filter(n => n.isActive !== false).length;
+                  if (canAddNominee(plan, usage.nomineeCount, vaultNomineeCount)) {
+                    setShowAddForm(true);
+                  } else {
+                    // Show upgrade modal and close this modal so upgrade is visible on top
+                    if (onLimitReached) {
+                      onLimitReached(
+                        "nominees",
+                        usage.nomineeCount,
+                        plan === "free" ? 1 : Infinity,
+                        plan === "free" 
+                          ? "Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees."
+                          : "Unable to add nominee. Please contact support."
+                      );
+                    } else {
+                      setError(plan === "free" 
+                        ? "Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees."
+                        : "Unable to add nominee. Please contact support.");
+                    }
+                    // Close the nominee modal when limit is reached so upgrade modal isn't hidden behind it
+                    onClose();
+                  }
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm"
               >
                 <Plus className="w-4 h-4" />
@@ -598,10 +646,10 @@ export default function AddNomineeModal({
             </div>
 
             {loadingNominees ? (
-              <div className="text-center py-8 text-slate-400">Loading nominees...</div>
+              <div className="text-center py-8 text-gray-500">Loading nominees...</div>
             ) : nominees.length === 0 ? (
-              <div className="text-center py-8 bg-slate-800/50 rounded-lg border border-slate-700">
-                <p className="text-slate-400 mb-4">No nominees assigned to this vault yet.</p>
+              <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-gray-600 mb-4">No nominees assigned to this vault yet.</p>
                 <button
                   onClick={() => setShowAddForm(true)}
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm"
@@ -613,39 +661,39 @@ export default function AddNomineeModal({
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-700">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Name</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Email ID</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Phone</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-slate-300">Access Trigger</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-slate-300">Actions</th>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email ID</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
+                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Access Trigger</th>
+                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {nominees.map((nominee) => (
                       <tr 
                         key={nominee.id} 
-                        className={`border-b border-slate-800 hover:bg-slate-800/50 ${
+                        className={`border-b border-gray-200 hover:bg-gray-50 ${
                           nominee.isActive === false ? 'opacity-60' : ''
                         }`}
                       >
-                        <td className="py-3 px-4 text-sm text-white">
+                        <td className="py-3 px-4 text-sm text-gray-900">
                           <div className="flex items-center gap-2">
                             {nominee.nomineeName}
                             {nominee.isActive === false && (
-                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-xs rounded border border-amber-200">
                                 Inactive
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-sm text-slate-300">
+                        <td className="py-3 px-4 text-sm text-gray-600">
                           {nominee.nomineeEmail || "-"}
                         </td>
-                        <td className="py-3 px-4 text-sm text-slate-300">
+                        <td className="py-3 px-4 text-sm text-gray-600">
                           {nominee.nomineePhone || "-"}
                         </td>
-                        <td className="py-3 px-4 text-sm text-slate-300">
+                        <td className="py-3 px-4 text-sm text-gray-600">
                           {nominee.accessTriggerDays} days
                         </td>
                         <td className="py-3 px-4 text-sm">
@@ -665,7 +713,7 @@ export default function AddNomineeModal({
                                 {nominee.nomineeEmail && (
                                   <button
                                     onClick={() => handleResendKey(nominee.id)}
-                                    className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs"
+                                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs"
                                     title="Resend key via email"
                                   >
                                     <Mail className="w-3 h-3" />
@@ -674,7 +722,7 @@ export default function AddNomineeModal({
                                 )}
                                 <button
                                   onClick={() => handleViewKey(nominee.id)}
-                                  className="flex items-center gap-1 px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-xs"
+                                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs"
                                   title="View/Copy key"
                                 >
                                   <Eye className="w-3 h-3" />
@@ -684,7 +732,7 @@ export default function AddNomineeModal({
                             )}
                             <button
                               onClick={() => handleDeleteNominee(nominee.id)}
-                              className="p-2 text-red-400 hover:bg-red-400/10 rounded"
+                              className="p-2 text-red-600 hover:bg-red-50 rounded"
                               title="Delete nominee"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -704,13 +752,13 @@ export default function AddNomineeModal({
         {showAddForm && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Add Nominee</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Add Nominee</h3>
               <button
                 onClick={() => {
                   setShowAddForm(false);
                   resetForm();
                 }}
-                className="text-slate-400 hover:text-white"
+                className="text-gray-400 hover:text-gray-600"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -718,44 +766,44 @@ export default function AddNomineeModal({
 
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Nominee Name *
                 </label>
                 <input
                   type="text"
                   value={nomineeName}
                   onChange={(e) => setNomineeName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-brand-500"
                   placeholder="Full name of nominee"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Email
                 </label>
                 <input
                   type="email"
                   value={nomineeEmail}
                   onChange={(e) => setNomineeEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-brand-500"
                   placeholder="nominee@example.com"
                 />
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   At least email or phone is required
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Phone Number
                 </label>
                 <div className="flex gap-2">
                   <select
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value)}
-                    className="w-32 rounded-md border border-slate-700 bg-slate-800 px-2 py-2 text-sm text-white focus:border-brand-500 focus:outline-none"
+                    className="w-32 rounded-md border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none"
                   >
                     <option value="+1">🇺🇸 United States (+1)</option>
                     <option value="+44">🇬🇧 United Kingdom (+44)</option>
@@ -773,18 +821,18 @@ export default function AddNomineeModal({
                         setNomineePhone(digitsOnly);
                       }
                     }}
-                    className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+                    className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-500 focus:border-brand-500 focus:outline-none"
                     maxLength={10}
                     placeholder="10-digit phone"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   Format: country code + 10-digit number
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Access Trigger Days
                 </label>
                 <input
@@ -793,25 +841,25 @@ export default function AddNomineeModal({
                   onChange={(e) => setAccessTriggerDays(parseInt(e.target.value) || 90)}
                   min={1}
                   max={365}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-brand-500"
                 />
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   Days of inactivity before nominee can access vault
                 </p>
               </div>
 
-              <div className="border-t border-slate-700 pt-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+              <div className="border-t border-gray-200 pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Encryption Password *
                 </label>
-                <p className="text-xs text-slate-400 mb-2">
+                <p className="text-xs text-gray-500 mb-2">
                   This password will be used to encrypt the nominee's key part. Share this password with the nominee through a secure channel (phone, in person, etc.).
                 </p>
                 <input
                   type="password"
                   value={encryptionPassword}
                   onChange={(e) => setEncryptionPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500 mb-2"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-brand-500 mb-2"
                   placeholder="Minimum 8 characters"
                   required
                 />
@@ -819,14 +867,14 @@ export default function AddNomineeModal({
                   type="password"
                   value={confirmEncryptionPassword}
                   onChange={(e) => setConfirmEncryptionPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-brand-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:border-brand-500"
                   placeholder="Confirm encryption password"
                   required
                 />
               </div>
 
               {error && (
-                <div className="p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm">
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                   {error}
                 </div>
               )}
@@ -838,7 +886,7 @@ export default function AddNomineeModal({
                     setShowAddForm(false);
                     resetForm();
                   }}
-                  className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>

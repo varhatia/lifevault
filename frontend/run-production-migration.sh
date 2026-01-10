@@ -19,3 +19,6 @@ cd "$(dirname "$0")"
 npx prisma migrate deploy
 
 echo "✅ Migration complete!"
+
+
+

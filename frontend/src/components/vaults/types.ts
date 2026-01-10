@@ -12,11 +12,11 @@ export const CATEGORIES_CONFIG: Array<CategoryConfig> = [
     id: "identity-vital",
     name: "Identity & Vital Records",
     priority: "must-have",
-    microcopy: "Basic identity documents that are often needed for verification and claims.",
+    microcopy: "Basic identity documents that are often needed for verification and claims",
   },
   {
     id: "finance-investments",
-    name: "Finance → Bank Accounts & Investments",
+    name: "Banking, Investments & Tax Records",
     priority: "must-have",
     microcopy: "Details of your main savings, salary, or joint accounts so your family knows where funds are held.",
   },

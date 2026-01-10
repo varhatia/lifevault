@@ -146,18 +146,18 @@ export default function VaultReviewModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl border border-gray-200 shadow-large w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-semibold text-white">Review Your Vault</h2>
-            <p className="text-sm text-slate-400 mt-1">
+            <h2 className="text-2xl font-semibold text-gray-900">Review Your Vault</h2>
+            <p className="text-sm text-gray-600 mt-1">
               Review your vault items to ensure all information is up to date
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-300 transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X className="w-6 h-6" />
           </button>
@@ -165,23 +165,23 @@ export default function VaultReviewModal({
 
         {/* Review Status */}
         {reviewStatus && (
-          <div className="px-6 py-4 bg-slate-800/50 border-b border-slate-800">
+          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-300">
+                  <Calendar className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-700">
                     Last reviewed: {formatRelativeTime(reviewStatus.lastReviewedAt)}
                   </span>
                   {reviewStatus.lastReviewedAt && (
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-gray-500">
                       ({formatDate(reviewStatus.lastReviewedAt)})
                     </span>
                   )}
                 </div>
               </div>
               {reviewStatus.isReviewDue && (
-                <div className="flex items-center gap-2 text-orange-400">
+                <div className="flex items-center gap-2 text-orange-600">
                   <AlertCircle className="w-4 h-4" />
                   <span className="text-sm font-medium">Review due</span>
                 </div>
@@ -195,7 +195,7 @@ export default function VaultReviewModal({
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto"></div>
-              <p className="text-slate-400 mt-2">Loading review status...</p>
+              <p className="text-gray-500 mt-2">Loading review status...</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -205,27 +205,27 @@ export default function VaultReviewModal({
                 const isReviewed = reviewedCategories.has(category.id);
 
                 const priorityColors = {
-                  "must-have": "border-red-500/50 bg-red-500/5",
-                  "good-to-have": "border-amber-500/50 bg-amber-500/5",
-                  "optional": "border-slate-700 bg-slate-800/40",
+                  "must-have": "border-red-200 bg-red-50",
+                  "good-to-have": "border-amber-200 bg-amber-50",
+                  "optional": "border-gray-200 bg-gray-50",
                 };
 
                 return (
                   <div
                     key={category.id}
-                    className={`border rounded-lg p-4 transition-colors ${
-                      priorityColors[category.priority] || "border-slate-800 bg-slate-900/60"
+                    className={`border rounded-lg p-4 transition-colors shadow-soft ${
+                      priorityColors[category.priority] || "border-gray-200 bg-white"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-semibold text-white">
+                        <h3 className="font-semibold text-gray-900">
                           {category.name}
                         </h3>
-                        <p className="text-sm text-slate-400 mt-1">
+                        <p className="text-sm text-gray-600 mt-1">
                           {category.microcopy}
                         </p>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-xs text-gray-500 mt-2">
                           {hasItems 
                             ? `${categoryItems.length} item${categoryItems.length !== 1 ? "s" : ""}`
                             : "No items"}
@@ -247,9 +247,9 @@ export default function VaultReviewModal({
                           ) : null
                         ) : null}
                         {isReviewed && (
-                          <div className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-500/20 border border-green-500/50">
-                            <CheckCircle2 className="w-4 h-4 text-green-400" />
-                            <span className="text-sm font-medium text-green-400">
+                          <div className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-green-50 border border-green-200">
+                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <span className="text-sm font-medium text-green-700">
                               Reviewed
                             </span>
                           </div>
@@ -264,9 +264,9 @@ export default function VaultReviewModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-800 p-6 bg-slate-900/50">
+        <div className="border-t border-gray-200 p-6 bg-gray-50">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-slate-400">
+            <div className="text-sm text-gray-600">
               {reviewedCategories.size > 0 && (
                 <span>
                   {reviewedCategories.size} categor{reviewedCategories.size !== 1 ? "ies" : "y"} reviewed
@@ -276,7 +276,7 @@ export default function VaultReviewModal({
             <div className="flex gap-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-slate-300 bg-slate-800 border border-slate-700 rounded-md hover:bg-slate-700 transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>

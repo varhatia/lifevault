@@ -272,3 +272,6 @@ Based on dependencies and schema evolution, the correct order should be:
 - Delete the 2 problematic migrations
 - Keep the 6 valid migrations
 - Order is correct and will work as-is
+
+
+

@@ -86,7 +86,9 @@ export default function HomePage() {
   if (loading || isAuthenticated) {
     return (
       <div className="space-y-6">
-        <p className="text-sm text-slate-400">Loading...</p>
+        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-soft">
+          <p className="text-sm text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }

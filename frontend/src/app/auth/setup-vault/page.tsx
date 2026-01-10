@@ -71,14 +71,14 @@ export default function SetupVaultPage() {
     return (
       <div className="mx-auto max-w-md space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Email Verification Required</h1>
-          <p className="mt-2 text-xs text-slate-300">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Email Verification Required</h1>
+          <p className="mt-2 text-xs text-gray-600">
             Please verify your email address before setting up your vault.
           </p>
         </div>
-        <div className="rounded-xl border border-amber-800/50 bg-amber-900/20 p-6">
-          <h3 className="mb-2 text-sm font-medium text-amber-200">⚠️ Email Not Verified</h3>
-          <p className="mb-4 text-xs text-amber-100/80">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 shadow-soft">
+          <h3 className="mb-2 text-sm font-medium text-amber-700">⚠️ Email Not Verified</h3>
+          <p className="mb-4 text-xs text-amber-600">
             We sent a verification email to your inbox. Please check your email and click the verification link to continue.
           </p>
           <div className="space-y-2">
@@ -90,7 +90,7 @@ export default function SetupVaultPage() {
             </a>
             <a
               href="/auth/login"
-              className="block w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-center text-sm font-medium text-slate-300 hover:bg-slate-800"
+              className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Back to Login
             </a>

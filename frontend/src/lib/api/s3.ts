@@ -42,8 +42,8 @@ if (IS_PRODUCTION && AWS_ENDPOINT_URL && (AWS_ENDPOINT_URL.includes('localhost')
   AWS_ENDPOINT_URL = undefined; // Ignore localhost endpoint in production
 }
 
-const USE_LOCAL_STORAGE = process.env.USE_LOCAL_STORAGE === 'true';
-const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || join(process.cwd(), '.storage', 'encrypted-files');
+export const USE_LOCAL_STORAGE = process.env.USE_LOCAL_STORAGE === 'true';
+export const LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR || join(process.cwd(), '.storage', 'encrypted-files');
 
 // Determine if we should use S3
 // Use S3 if:

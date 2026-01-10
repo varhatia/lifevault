@@ -194,6 +194,9 @@ export async function POST(
       );
     }
 
+    // Note: FamilyVault member limits are not enforced
+    // Member limits only apply to MyVault members
+
     // Note: encryptedPrivateKey is optional - member will set it when they first unlock with their master password
 
     // Check if user already exists (by email or phone)

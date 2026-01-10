@@ -106,6 +106,10 @@ export default function CreateMyVaultModal({
 
       if (!res.ok) {
         const error = await res.json();
+        // Check if it's a limit error
+        if (error.limitReached) {
+          throw new Error(error.message || "Vault limit reached");
+        }
         throw new Error(error.error || "Failed to create vault");
       }
 

@@ -194,28 +194,28 @@ export default function VaultSetupWizard({
   // Show completion message
   if (showCompletion && allStepsCompleted) {
     return (
-      <div className="rounded-2xl border border-brand-500/50 bg-gradient-to-br from-brand-500/10 to-brand-600/5 p-8 text-center">
+      <div className="rounded-lg border border-brand-200 bg-white p-8 text-center shadow-soft">
         <div className="mb-6">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand-500/20">
-            <Check className="h-10 w-10 text-brand-400" />
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand-50">
+            <Check className="h-10 w-10 text-brand-500" />
           </div>
         </div>
-        <h2 className="text-2xl font-semibold text-white mb-2">
+        <h2 className="text-2xl font-semibold text-gray-900 mb-2">
           🎉 Congratulations!
         </h2>
-        <p className="text-lg text-slate-300 mb-4">
+        <p className="text-lg text-gray-700 mb-4">
           Your basic vault setup is complete!
         </p>
-        <p className="text-sm text-slate-400 mb-6">
+        <p className="text-sm text-gray-600 mb-6">
           You've successfully completed all 5 essential steps. Your vault is now ready to help protect your family's future.
         </p>
         
         {readinessScore !== null && readinessScore !== undefined && (
           <div className="mb-6">
-            <div className="inline-flex items-center gap-2 rounded-lg bg-slate-900/50 px-4 py-2 border border-slate-700">
-              <span className="text-sm text-slate-400">Your Readiness Score:</span>
-              <span className="text-2xl font-bold text-brand-400">{readinessScore}</span>
-              <span className="text-sm text-slate-400">/ 100</span>
+            <div className="inline-flex items-center gap-2 rounded-lg bg-gray-50 px-4 py-2 border border-gray-200">
+              <span className="text-sm text-gray-600">Your Readiness Score:</span>
+              <span className="text-2xl font-bold text-brand-500">{readinessScore}</span>
+              <span className="text-sm text-gray-600">/ 100</span>
             </div>
           </div>
         )}
@@ -223,7 +223,7 @@ export default function VaultSetupWizard({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={() => setShowCompletion(false)}
-            className="rounded-md bg-brand-600 px-6 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+            className="rounded-md bg-brand-500 px-6 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
           >
             Continue to Vault
           </button>
@@ -233,25 +233,25 @@ export default function VaultSetupWizard({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-white mb-2">
-          Complete Your Vault Setup
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Complete Your Basic Vault Setup
         </h2>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-gray-600">
           Follow these 5 essential steps to secure your family's future. Complete all steps to finish your basic vault setup.
         </p>
       </div>
 
       {/* Progress Bar */}
       <div className="mb-6">
-        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+        <div className="flex items-center justify-between text-xs text-gray-600 mb-2">
           <span>Progress</span>
           <span>{completedCount} of {steps.length} steps completed</span>
         </div>
-        <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
+        <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-brand-500 to-brand-400 transition-all duration-300"
+            className="h-full rounded-full bg-brand-500 transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
@@ -266,42 +266,42 @@ export default function VaultSetupWizard({
             disabled={step.completed}
             className={`w-full text-left rounded-lg border p-4 transition-all ${
               step.completed
-                ? "border-brand-500/50 bg-brand-500/10 cursor-default"
-                : "border-slate-800 bg-slate-900/60 hover:border-slate-700 hover:bg-slate-900 cursor-pointer"
+                ? "border-brand-200 bg-brand-50 cursor-default"
+                : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-soft cursor-pointer"
             }`}
           >
             <div className="flex items-start gap-4">
               <div className={`flex-shrink-0 mt-0.5 ${
-                step.completed ? "text-brand-400" : "text-slate-400"
+                step.completed ? "text-brand-500" : "text-gray-400"
               }`}>
                 {step.completed ? (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500/20">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500 text-white">
                     <Check className="h-4 w-4" />
                   </div>
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-800 text-xs font-medium">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
                     {index + 1}
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className={`${step.completed ? "text-brand-400" : "text-slate-300"}`}>
+                  <div className={`${step.completed ? "text-brand-500" : "text-gray-600"}`}>
                     {step.icon}
                   </div>
                   <h3 className={`text-sm font-semibold ${
-                    step.completed ? "text-brand-300" : "text-white"
+                    step.completed ? "text-brand-600" : "text-gray-900"
                   }`}>
                     {step.title}
                   </h3>
                 </div>
-                <p className="text-xs text-slate-400 mb-2">
+                <p className="text-xs text-gray-600 mb-2">
                   {step.description}
                 </p>
                 {step.count !== undefined && (
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-gray-500">
                     {step.completed ? (
-                      <span className="text-brand-400">✓ Completed</span>
+                      <span className="text-brand-600 font-medium">✓ Completed</span>
                     ) : (
                       <span>
                         {step.count} / {step.requiredCount} {step.actionType === "upload" ? "uploaded" : "added"}
@@ -311,7 +311,7 @@ export default function VaultSetupWizard({
                 )}
               </div>
               {!step.completed && (
-                <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
+                <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
               )}
             </div>
           </button>
@@ -319,8 +319,8 @@ export default function VaultSetupWizard({
       </div>
 
       {allStepsCompleted && !showCompletion && (
-        <div className="mt-6 p-4 rounded-lg bg-brand-500/10 border border-brand-500/30">
-          <p className="text-sm text-brand-300 text-center">
+        <div className="mt-6 p-4 rounded-lg bg-brand-50 border border-brand-200">
+          <p className="text-sm text-brand-700 text-center">
             🎉 All steps completed! Click to see your completion message.
           </p>
         </div>

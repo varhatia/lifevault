@@ -151,18 +151,18 @@ export default function ActivityPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Activity Log</h1>
-        <p className="mt-2 text-xs text-slate-300">
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Activity Log</h1>
+        <p className="mt-2 text-sm text-gray-600">
           View recent security and vault activities for your account. Vault contents
           remain end-to-end encrypted; only high-level metadata is shown here.
         </p>
       </div>
 
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 space-y-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-4 shadow-soft">
         {/* Filters */}
-        <div className="grid gap-3 sm:grid-cols-4 text-[11px]">
+        <div className="grid gap-3 sm:grid-cols-4 text-xs">
           <div className="flex flex-col gap-1">
-            <label className="text-slate-400" htmlFor="vaultTypeFilter">Vault type</label>
+            <label className="text-gray-600 font-medium" htmlFor="vaultTypeFilter">Vault type</label>
             <select
               id="vaultTypeFilter"
               value={vaultTypeFilter}
@@ -170,7 +170,7 @@ export default function ActivityPage() {
                 setNextCursor(null);
                 setVaultTypeFilter(e.target.value);
               }}
-              className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
               <option value="all">All</option>
               <option value="account">Account</option>
@@ -179,7 +179,7 @@ export default function ActivityPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-slate-400" htmlFor="actionFilter">Action</label>
+            <label className="text-gray-600 font-medium" htmlFor="actionFilter">Action</label>
             <select
               id="actionFilter"
               value={actionFilter}
@@ -187,7 +187,7 @@ export default function ActivityPage() {
                 setNextCursor(null);
                 setActionFilter(e.target.value);
               }}
-              className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             >
               <option value="all">All</option>
               <option value="login_success">Logged in</option>
@@ -214,7 +214,7 @@ export default function ActivityPage() {
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-slate-400" htmlFor="fromDate">From date</label>
+            <label className="text-gray-600 font-medium" htmlFor="fromDate">From date</label>
             <input
               type="date"
               id="fromDate"
@@ -223,11 +223,11 @@ export default function ActivityPage() {
                 setNextCursor(null);
                 setFromDate(e.target.value);
               }}
-              className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-slate-400" htmlFor="toDate">To date</label>
+            <label className="text-gray-600 font-medium" htmlFor="toDate">To date</label>
             <input
               type="date"
               id="toDate"
@@ -236,43 +236,45 @@ export default function ActivityPage() {
                 setNextCursor(null);
                 setToDate(e.target.value);
               }}
-              className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-brand-500 focus:outline-none"
+              className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
             />
           </div>
         </div>
 
         {error && (
-          <p className="mb-3 text-xs text-red-400">
-            {error}
-          </p>
+          <div className="rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-600">
+              {error}
+            </p>
+          </div>
         )}
 
         {!loading && initialLoaded && logs.length === 0 && !error && (
-          <p className="text-xs text-slate-400">No activity recorded yet.</p>
+          <p className="text-sm text-gray-600">No activity recorded yet.</p>
         )}
 
         <div className="space-y-3">
           {logs.map((log) => (
             <div
               key={log.id}
-              className="flex items-start justify-between rounded-md border border-slate-800 bg-slate-950/60 px-3 py-2"
+              className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
             >
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-200">
+                  <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-700 font-medium">
                     {formatVaultType(log.vaultType)}
                   </span>
-                  <span className="text-slate-100">
+                  <span className="text-gray-900 font-medium">
                     {formatAction(log.action)}
                   </span>
                 </div>
                 {log.description && (
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-gray-600">
                     {log.description}
                   </p>
                 )}
                 {log.metadata && (log.metadata.category || log.metadata.filename) && (
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-gray-500">
                     {log.metadata.category && (
                       <span>Category: {String(log.metadata.category)}</span>
                     )}
@@ -284,7 +286,7 @@ export default function ActivityPage() {
                 )}
               </div>
               <div className="ml-4 text-right">
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-gray-500">
                   {formatTimestamp(log.createdAt)}
                 </p>
               </div>
@@ -298,7 +300,7 @@ export default function ActivityPage() {
               type="button"
               disabled={loading}
               onClick={() => loadLogs(nextCursor)}
-              className="rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-100 hover:bg-slate-700 disabled:opacity-50"
+              className="rounded-md bg-brand-500 px-4 py-2 text-xs font-medium text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
             >
               {loading ? "Loading..." : "Load more"}
             </button>
@@ -306,7 +308,7 @@ export default function ActivityPage() {
         )}
 
         {loading && !initialLoaded && (
-          <p className="mt-2 text-xs text-slate-400">Loading activity...</p>
+          <p className="mt-2 text-sm text-gray-600">Loading activity...</p>
         )}
       </div>
     </div>

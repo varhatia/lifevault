@@ -180,3 +180,6 @@ The current `schema.prisma` expects:
 - ✅ All other tables from the base schema
 
 **Conclusion:** The schema is correct, but the migrations have duplicates and one empty migration that need to be cleaned up.
+
+
+

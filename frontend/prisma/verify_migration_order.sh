@@ -117,3 +117,6 @@ echo "  1. Review any issues identified above"
 echo "  2. Remove duplicate/empty migrations if found"
 echo "  3. Verify migration order matches schema evolution"
 echo "  4. Test migrations on a fresh database"
+
+
+

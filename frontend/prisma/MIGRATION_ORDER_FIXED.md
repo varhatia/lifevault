@@ -112,3 +112,6 @@ DATABASE_URL="postgresql://user:pass@localhost/test_lifevault" \
 - ✅ **Ready to apply**
 
 The migrations are now properly ordered and will execute successfully!
+
+
+

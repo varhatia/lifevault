@@ -55,7 +55,7 @@ export default function UserMenu() {
   // This prevents the flash of "Checking session..." message
   if (!user) {
     return (
-      <a href="/auth/login" className="text-xs text-slate-300 hover:text-white">
+      <a href="/auth/login" className="text-sm text-gray-600 hover:text-brand-600 font-medium transition-colors">
         Login
       </a>
     );
@@ -64,26 +64,26 @@ export default function UserMenu() {
   const displayName = user.fullName || user.email;
 
   return (
-    <div className="relative flex items-center text-xs">
+    <div className="relative flex items-center text-sm">
       <button
         onClick={() => setMenuOpen((open) => !open)}
-        className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 hover:bg-slate-800"
+        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-soft"
       >
         <span className="max-w-[140px] truncate">{displayName}</span>
-        <span className="text-slate-500">▾</span>
+        <span className="text-gray-400">▾</span>
       </button>
 
       {menuOpen && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-md border border-slate-700 bg-slate-900 py-1 shadow-lg">
+        <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-large">
           <button
             onClick={() => {
               setMenuOpen(false);
               router.push("/activity");
             }}
-            className={`block w-full px-3 py-1 text-left text-[11px] ${
+            className={`block w-full px-4 py-2 text-left text-sm transition-colors ${
               pathname === "/activity"
-                ? "bg-slate-800 text-white"
-                : "text-slate-200 hover:bg-slate-800"
+                ? "bg-brand-50 text-brand-600 font-medium"
+                : "text-gray-700 hover:bg-gray-50"
             }`}
           >
             Activity
@@ -93,7 +93,7 @@ export default function UserMenu() {
               setMenuOpen(false);
               handleLogout();
             }}
-            className="block w-full px-3 py-1 text-left text-[11px] text-red-300 hover:bg-slate-800"
+            className="block w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
           >
             Logout
           </button>

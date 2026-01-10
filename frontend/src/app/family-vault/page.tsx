@@ -85,7 +85,7 @@ const CATEGORIES_CONFIG: CategoryConfig[] = [
   },
   {
     id: "finance-investments",
-    name: "Finance → Bank Accounts & Investments",
+    name: "Banking, Investments & Tax Records",
     priority: "must-have",
     microcopy: "Bank accounts, mutual funds, demat accounts, fixed deposits, PPF/EPF/NPS, bonds. Store access instructions, not plaintext passwords.",
   },
@@ -243,13 +243,26 @@ export default function FamilyVaultPage() {
 
       if (!response.ok) {
         const error = await response.json();
+        // Check if it's a storage limit error
+        if (error.limitReached && error.limitType === 'storage') {
+          // Note: Family vault storage limits are not enforced in UI
+          // This is handled server-side for vault owners only
+          throw new Error(error.message || "Storage limit reached");
+        }
         throw new Error(error.error || "Failed to upload");
       }
 
       await loadVaultItems(selectedVault.id);
     } catch (error) {
       console.error("Error uploading document:", error);
-      alert(error instanceof Error ? error.message : "Failed to upload document");
+      // Show error message without popup
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload document";
+      if (errorMessage.includes("Storage limit")) {
+        // For family vaults, we'll show a simple error message
+        // Upgrade modal would need to be added if needed
+        console.error("Storage limit reached:", errorMessage);
+      }
+      alert(errorMessage);
     }
   };
 
@@ -1025,14 +1038,14 @@ export default function FamilyVaultPage() {
                 <>
                   <button
                     onClick={() => setShowMemberModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm"
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm shadow-sm"
                   >
                     <Users className="w-4 h-4" />
                     Members
                   </button>
                   <button
                     onClick={() => setShowNomineeModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-sm"
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm shadow-sm"
                   >
                     <Users className="w-4 h-4" />
                     Nominees
@@ -1569,13 +1582,16 @@ function VaultItemCard({
           </span>
         </div>
         <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-          <span>Created by {item.creator.fullName || item.creator.email}</span>
-          <span>•</span>
-          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-          {item.tags && item.tags.length > 0 && (
+          <span>Owner: {item.creator.fullName || item.creator.email}</span>
+          {item.updatedAt ? (
             <>
               <span>•</span>
-              <span>{item.tags.join(", ")}</span>
+              <span>Updated: {new Date(item.updatedAt).toLocaleDateString()}</span>
+            </>
+          ) : (
+            <>
+              <span>•</span>
+              <span>Updated: {new Date(item.createdAt).toLocaleDateString()}</span>
             </>
           )}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Check, Plus, MoreVertical, ArrowRight, Edit2, Trash2, Download, CheckCircle2 } from "lucide-react";
+import { X, Check, Plus, MoreVertical, ArrowRight, Edit2, Trash2, Download, CheckCircle2, Info } from "lucide-react";
 import { CategoryConfig, CategoryPriority } from "./types";
 import { encryptFile } from "@/lib/crypto";
 import { getFieldValidator } from "@/lib/validation";
@@ -30,6 +30,7 @@ type DocumentCard = {
     iv?: string | null;
     encryptedMetadata?: string | null;
     createdAt?: string;
+    updatedAt?: string;
     creator?: {
       id: string;
       email: string;
@@ -52,6 +53,13 @@ type FolderDetailViewProps = {
     s3Key?: string | null;
     iv?: string | null;
     encryptedMetadata?: string | null; // Base64 encoded encrypted metadata
+    createdAt?: string;
+    updatedAt?: string;
+    creator?: {
+      id: string;
+      email: string;
+      fullName: string | null;
+    };
   }>;
   onAddDocument: (documentType: string, fields: Record<string, any>, file: File | null, vaultKey: CryptoKey) => Promise<void>;
   onEditDocument: (itemId: string, documentType: string, fields: Record<string, any>, file: File | null, vaultKey: CryptoKey) => Promise<void>;
@@ -84,10 +92,10 @@ function renderField(
   allFields: Record<string, any>
 ) {
   const hasError = !!fieldErrors[field.name];
-  const baseInputClasses = `w-full px-3 py-2 bg-slate-900 border rounded-lg text-white text-sm focus:outline-none ${
+  const baseInputClasses = `w-full px-3 py-2 bg-white border rounded-lg text-gray-900 text-sm focus:outline-none ${
     hasError 
       ? "border-red-500 focus:border-red-500" 
-      : "border-slate-700 focus:border-brand-500"
+      : "border-gray-300 focus:border-brand-500"
   }`;
 
   switch (field.type) {
@@ -98,6 +106,7 @@ function renderField(
           onChange={(e) => onChange(e.target.value)}
           className={baseInputClasses}
           required={field.required}
+          aria-label={field.label}
         >
           <option value="">Select {field.label}</option>
           {field.options?.map(option => (
@@ -125,6 +134,7 @@ function renderField(
           onChange={(e) => onChange(e.target.value)}
           className={baseInputClasses}
           required={field.required}
+          aria-label={field.label}
         >
           <option value="">Select</option>
           <option value="Yes">Yes</option>
@@ -138,8 +148,9 @@ function renderField(
         <input
           type="file"
           onChange={(e) => onChange(e.target.files?.[0] || null)}
-          className="w-full text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white [&::file-selector-button]:hidden"
+          className="w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white [&::file-selector-button]:hidden"
           required={field.required}
+          aria-label={field.label}
         />
       );
 
@@ -172,8 +183,12 @@ type FieldDefinition = {
   defaultValue?: string; // Default value for the field
   conditionalFields?: {
     condition: string; // Field name to check
-    value: string; // Value that triggers this
+    value: string | string[]; // Value(s) that trigger this
     fields: FieldDefinition[];
+  };
+  showWhen?: {
+    field: string; // Field name to check
+    value: string | string[]; // Value(s) that show this field
   };
 };
 
@@ -188,21 +203,12 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
   "identity-vital": [
     { 
       type: "aadhaar", 
-      label: "Aadhaar Card", 
+      label: "Aadhaar", 
       required: true, 
       fields: [
         { name: "number", type: "text", label: "Aadhaar Number", required: true },
-        { name: "pdf", type: "file", label: "Document", required: false, helpText: "💡 Uploading the document helps your family access it quickly in an emergency" }
-      ] 
-    },
-    { 
-      type: "passport", 
-      label: "Passport", 
-      required: true, 
-      fields: [
-        { name: "number", type: "text", label: "Passport Number", required: true },
-        { name: "expiry", type: "text", label: "Expiry Date", required: true },
-        { name: "pdf", type: "file", label: "Document", required: false, helpText: "💡 Uploading the document helps your family access it quickly in an emergency" }
+        { name: "additionalDetails", type: "textarea", label: "Additional Details", required: false, placeholder: "Add any required details if you wish"}, 
+        { name: "pdf", type: "file", label: "Upload Document", required: true, helpText: "💡 Uploading the document helps your family access it quickly in an emergency" }
       ] 
     },
     { 
@@ -211,31 +217,32 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
       required: true, 
       fields: [
         { name: "number", type: "text", label: "PAN Number", required: true },
-        { name: "pdf", type: "file", label: "Document", required: false, helpText: "💡 Uploading the document helps your family access it quickly in an emergency" }
+        { name: "additionalDetails", type: "textarea", label: "Additional Details", required: false, placeholder: "Add any required details if you wish"}, 
+        { name: "pdf", type: "file", label: "Upload Document", required: true, helpText: "💡 Uploading the document helps your family access it quickly in an emergency" }
       ] 
     },
     { 
-      type: "marriage-certificate", 
-      label: "Marriage Certificate", 
+      type: "others-identity", 
+      label: "Others (Recommended)", 
       required: false, 
       fields: [
-        { name: "pdf", type: "file", label: "Document", required: false }
-      ] 
-    },
-    { 
-      type: "birth-certificate", 
-      label: "Birth Certificate", 
-      required: true, 
-      fields: [
-        { name: "pdf", type: "file", label: "Document", required: true }
-      ] 
-    },
-    { 
-      type: "divorce-certificate", 
-      label: "Divorce Certificate", 
-      required: false, 
-      fields: [
-        { name: "pdf", type: "file", label: "Document", required: false }
+        { 
+          name: "documentType", 
+          type: "dropdown", 
+          label: "Type", 
+          required: true,
+          options: ["Birth Certificate", "Driving License", "Voter ID", "Passport", "Marriage Certificate", "Divorce Certificate", "Other"]
+        },
+        { name: "title", type: "text", label: "Title", required: false },
+        { name: "number", type: "text", label: "Number", required: false },
+        { 
+          name: "details", 
+          type: "textarea", 
+          label: "Details", 
+          required: false, 
+          placeholder: "Add any required details if you wish"
+        },
+        { name: "pdf", type: "file", label: "Upload Document", required: true }
       ] 
     },
   ],
@@ -269,7 +276,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
           }
         },
         { name: "notes", type: "textarea", label: "Notes for Family", required: false, placeholder: "Add any helpful information for your family" },
-        { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+        { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
       ] 
     },
     { 
@@ -288,7 +295,34 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
         { name: "accountFolio", type: "text", label: "Account / Folio (Optional)", required: false },
         { name: "hasNominee", type: "yes-no-notsure", label: "Nominee Added?", required: true },
         { name: "notes", type: "textarea", label: "Add a note for family", required: false, placeholder: "E.g. Reach out to Relationship manager Rajesh (phone)." },
-        { name: "pdf", type: "file", label: "Upload a document (Optional)", required: false }
+        { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
+      ] 
+    },
+    { 
+      type: "tax-records", 
+      label: "Tax Records", 
+      required: false, 
+      fields: [
+        { 
+          name: "financialYear", 
+          type: "dropdown", 
+          label: "Financial Year", 
+          required: true,
+          options: (() => {
+            const currentYear = new Date().getFullYear();
+            const options: string[] = [];
+            // Generate last 30 financial years in descending order (e.g., 2023-2024, 2022-2023, ...)
+            for (let i = 0; i < 30; i++) {
+              const startYear = currentYear - i - 1;
+              const endYear = currentYear - i;
+              options.push(`${startYear}-${endYear}`);
+            }
+            return options;
+          })()
+        },
+        { name: "additionalDetails", type: "textarea", label: "Additional Details", required: false, placeholder: "Add any required details if you wish" },
+        { name: "form16", type: "file", label: "Upload Form 16", required: true },
+        { name: "itr", type: "file", label: "Upload ITR", required: true }
       ] 
     },
   ],
@@ -324,7 +358,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
           required: false
         },
         { name: "notes", type: "textarea", label: "Add a note for family", required: false, placeholder: "E.g. Claim via LIC branch or online. Agent: Rajesh (phone)." },
-        { name: "pdf", type: "file", label: "Upload a document (Optional)", required: false }
+        { name: "pdf", type: "file", label: "Upload Document", required: true }
       ] 
     },
     { 
@@ -358,7 +392,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
           required: false
         },
         { name: "notes", type: "textarea", label: "Add a note for family", required: false, placeholder: "E.g. Claim via LIC branch or online. Agent: Rajesh (phone)." },
-        { name: "pdf", type: "file", label: "Upload a document (Optional)", required: false }
+        { name: "pdf", type: "file", label: "Upload Document", required: true }
       ] 
     },
     { 
@@ -391,7 +425,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
           required: false
         },
         { name: "notes", type: "textarea", label: "Add a note for family", required: false, placeholder: "E.g. Claim via LIC branch or online. Agent: Rajesh (phone)." },
-        { name: "pdf", type: "file", label: "Upload a document (Optional)", required: false }
+        { name: "pdf", type: "file", label: "Upload Document", required: true }
       ] 
     },
   ],
@@ -402,7 +436,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
       { name: "outstandingAmount", type: "text", label: "Outstanding Amount", required: false },
       { name: "emiDate", type: "text", label: "EMI Date", required: false },
       { name: "notes", type: "textarea", label: "Notes", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
     { type: "personal-loan", label: "Personal Loan", required: false, fields: [
       { name: "lender", type: "text", label: "Lender", required: true },
@@ -410,7 +444,7 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
       { name: "outstandingAmount", type: "text", label: "Outstanding Amount", required: false },
       { name: "emiDate", type: "text", label: "EMI Date", required: false },
       { name: "notes", type: "textarea", label: "Notes", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
     { type: "vehicle-loan", label: "Vehicle Loan", required: false, fields: [
       { name: "lender", type: "text", label: "Lender", required: true },
@@ -418,24 +452,24 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
       { name: "outstandingAmount", type: "text", label: "Outstanding Amount", required: false },
       { name: "emiDate", type: "text", label: "EMI Date", required: false },
       { name: "notes", type: "textarea", label: "Notes", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
     { type: "other-liability", label: "Other Liabilities", required: false, fields: [
       { name: "liabilityType", type: "text", label: "Liability Type", required: true },
       { name: "notes", type: "textarea", label: "Notes", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
   ],
   "legal-property": [
     { type: "property", label: "Property", required: false, fields: [
       { name: "title", type: "text", label: "Title", required: true },
       { name: "notes", type: "textarea", label: "Note", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
     { type: "legal", label: "Legal", required: false, fields: [
       { name: "title", type: "text", label: "Title", required: true },
       { name: "notes", type: "textarea", label: "Note", required: false },
-      { name: "pdf", type: "file", label: "Upload Document (Optional)", required: false }
+      { name: "pdf", type: "file", label: "Upload Document (Recommended)", required: false }
     ] },
   ],
   "digital-assets": [
@@ -566,6 +600,40 @@ export const DOCUMENT_TEMPLATES: Record<string, Array<{
   ],
 };
 
+// Helper text for each section to guide users on what to add
+const SECTION_HELPER_TEXTS: Record<string, string> = {
+  // Identity & Vital Records
+  "others-identity": "Add your other available Identify docs like Birth Certificate, Passport, Driving License, Voter ID, Marriage or Divorce Certificate.",
+  
+  // Finance & Investments
+  "bank-account": "Add your main savings or salary account. Add any important joint accounts. Note down branch / relationship manager if relevant.",
+  "investment": "Add your investment accounts like mutual funds, stocks, bonds, or other investment portfolios. Include account numbers and broker details.",
+  "tax-records": "Add your tax records and returns. Include ITR documents, Form 16, and other tax-related documents for easy access during tax season.",
+  
+  // Insurance
+  "life-term-insurance": "Add your life or term insurance policies. Include policy numbers, coverage amount, nominee details, and premium payment information.",
+  "health-insurance": "Add your health insurance policies. Include policy numbers, coverage details, family members covered, and claim procedures.",
+  "other-insurance": "Add other insurance policies like vehicle, home, travel, or any other insurance coverage you have.",
+  
+  // Loans & Liabilities
+  "home-loan": "Add your home loan details including loan amount, outstanding balance, EMI details, lender information, and property address.",
+  "personal-loan": "Add your personal loan details including loan amount, outstanding balance, EMI details, and lender information.",
+  "vehicle-loan": "Add your vehicle loan details including loan amount, outstanding balance, EMI details, vehicle details, and lender information.",
+  "credit-card": "Add your credit card details including card number (last 4 digits), credit limit, outstanding balance, and bank information.",
+  "other-liability": "Add any other liabilities like education loans, business loans, or any other outstanding debts.",
+  
+  // Digital Assets
+  "email-account": "Add your primary email accounts. Include recovery email addresses and note any important email accounts for account recovery.",
+  "social-media": "Add your social media accounts like Facebook, Instagram, LinkedIn, Twitter, etc. Note any accounts that should be memorialized or closed.",
+  "banking-app": "Add your banking app accounts and mobile banking details. Include app names, login methods, and any important transaction limits.",
+  "investment-platform": "Add your investment platform accounts like Zerodha, Groww, Paytm Money, etc. Include account numbers and login details.",
+  "other-digital": "Add any other digital accounts or apps that are important for your nominees to know about.",
+  
+  // Property & Legal
+  "property": "Add your property documents like house ownership papers, land documents, rental agreements, or any property-related legal documents.",
+  "legal": "Add your legal documents like wills, power of attorney, contracts, or any other important legal papers.",
+};
+
 const HELPER_TEXTS: Record<string, string> = {
   "identity-vital": "These documents are required for insurance claims, bank access, and legal processes.",
   "finance-investments": "This helps your family know where to start. Add more later.",
@@ -609,7 +677,7 @@ export default function FolderDetailView({
   const optionalDocs = templates.filter(t => !t.required);
 
   // Categories that need sections with multiple rows
-  const categoriesWithSections = ["finance-investments", "insurance", "loans-liabilities", "digital-assets", "legal-property"];
+  const categoriesWithSections = ["finance-investments", "insurance", "loans-liabilities", "digital-assets", "legal-property", "identity-vital"];
   const needsSections = categoriesWithSections.includes(category.id);
 
   // For categories with sections, group items by document type
@@ -649,37 +717,48 @@ export default function FolderDetailView({
   const getPriorityBadge = (priority: CategoryPriority) => {
     switch (priority) {
       case "must-have":
-        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-500/20 text-red-400">🔴 Must-have</span>;
+        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-red-50 text-red-700 border border-red-200">🔴 Must-have</span>;
       case "good-to-have":
-        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">🟡 Good to Have</span>;
+        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200">🟡 Good to Have</span>;
       case "optional":
-        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-slate-400">⚪ Optional</span>;
+        return <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-700 border border-gray-200">⚪ Optional</span>;
     }
   };
 
   const handleAddDocument = async (documentType: string) => {
+    // Check if Aadhaar or PAN already exists (only one allowed)
+    if (documentType === "aadhaar" || documentType === "pan") {
+      const existingItem = items.find(item => 
+        item.tags.includes(documentType) || 
+        item.title.toLowerCase().includes(documentType.toLowerCase())
+      );
+      if (existingItem) {
+        alert(`You can only have one ${documentType === "aadhaar" ? "Aadhaar" : "PAN"} record. Please edit or delete the existing one.`);
+        return;
+      }
+    }
     setSelectedDocumentType(documentType);
     setShowAddForm(true);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-      <div className="bg-slate-900 rounded-lg border border-slate-800 w-full max-w-3xl p-6 my-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex-1">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto p-4">
+      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-3xl max-h-[90vh] my-8 shadow-large flex flex-col">
+        {/* Header - Fixed at top */}
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex-1 pr-4">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-brand-500/20 flex items-center justify-center">
                 <span className="text-xl">📁</span>
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">{category.name}</h2>
+                <h2 className="text-xl font-bold text-gray-900">{category.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
                   {getPriorityBadge(category.priority)}
                 </div>
               </div>
             </div>
-            <p className="text-sm text-slate-300 mt-2">
+            <p className="text-sm text-gray-600 mt-2">
               {HELPER_TEXTS[category.id] || category.microcopy}
             </p>
           </div>
@@ -691,32 +770,35 @@ export default function FolderDetailView({
                 onClose();
               }
             }}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+            aria-label="Close"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Review Mode Banner - Only visible when opened from review modal */}
-        {reviewMode && (
-          <div className="mb-6 p-4 rounded-lg border border-brand-500/50 bg-brand-500/10">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-brand-400" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-brand-300">
-                  Review Mode: Mark each item as reviewed when done
-                </p>
-                <p className="text-xs text-brand-400/80 mt-1">
-                  Check the box on each card after reviewing it. The category will be marked complete when all items are reviewed.
-                </p>
+        {/* Scrollable Content Area */}
+        <div className="flex-1 overflow-y-auto px-6">
+          {/* Review Mode Banner - Only visible when opened from review modal */}
+          {reviewMode && (
+            <div className="mt-4 mb-4 p-4 rounded-lg border border-brand-200 bg-brand-50 shadow-soft">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-brand-600" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-brand-900">
+                    Review Mode: Mark each item as reviewed when done
+                  </p>
+                  <p className="text-xs text-brand-700 mt-1">
+                    Check the box on each card after reviewing it. The category will be marked complete when all items are reviewed.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-
-        {/* Document Cards or Sections */}
-        <div className="space-y-3 mb-6">
+          {/* Document Cards or Sections */}
+          <div className="space-y-3 py-4">
           {needsSections ? (
             // Render sections with multiple rows
             <DocumentSectionsView
@@ -780,7 +862,7 @@ export default function FolderDetailView({
               {/* Required Documents */}
               {requiredDocs.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-400 mb-2">Required Documents</h3>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-2">Required Documents</h3>
                   <div className="space-y-2">
                 {requiredDocs.map(template => {
                   const card = documentCards.find(c => c.type === template.type);
@@ -864,7 +946,7 @@ export default function FolderDetailView({
               {/* Optional Documents */}
               {optionalDocs.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold text-slate-400 mb-2">Optional Documents</h3>
+                  <h3 className="text-xs font-semibold text-gray-500 mb-2">Optional Documents</h3>
                   <div className="space-y-2">
                 {optionalDocs.map(template => {
                   const card = documentCards.find(c => c.type === template.type);
@@ -946,8 +1028,8 @@ export default function FolderDetailView({
               )}
             </>
           )}
+          </div>
         </div>
-
 
         {/* Add Document Form Modal */}
         {showAddForm && selectedDocumentType && (
@@ -987,15 +1069,15 @@ export default function FolderDetailView({
         {/* Delete Confirmation Modal */}
         {deleteConfirmItem && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-white mb-2">Delete Item</h3>
-              <p className="text-sm text-slate-300 mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 max-w-md w-full mx-4 shadow-large">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Item</h3>
+              <p className="text-sm text-gray-600 mb-6">
                 Are you sure you want to delete "{deleteConfirmItem.title}"? This action cannot be undone.
               </p>
               <div className="flex items-center gap-3 justify-end">
                 <button
                   onClick={() => setDeleteConfirmItem(null)}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -1093,37 +1175,32 @@ function DocumentCard({
   };
 
   return (
-    <div className={`flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border transition-colors ${
-      isReviewed ? "border-green-500/50 bg-green-500/5" : "border-slate-700 hover:border-slate-600"
+    <div className={`flex items-center justify-between p-4 bg-white rounded-lg border transition-colors shadow-soft ${
+      isReviewed ? "border-green-500/50 bg-green-50" : "border-gray-200 hover:border-gray-300 hover:shadow-medium"
     }`}>
       <div className="flex items-center gap-3 flex-1">
         {card.status === "uploaded" ? (
-          <Check className="w-5 h-5 text-green-400" />
+          <Check className="w-5 h-5 text-green-600" />
         ) : (
-          <Plus className="w-5 h-5 text-slate-500" />
+          <Plus className="w-5 h-5 text-gray-400" />
         )}
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h4 className="text-sm font-medium text-white">{card.title}</h4>
-            {card.template && (
-              <span className="text-xs px-2 py-0.5 bg-slate-700/50 text-slate-300 rounded">
-                {card.template.label}
-              </span>
-            )}
+            <h4 className="text-sm font-medium text-gray-900">{card.title}</h4>
             {isReviewed && (
-              <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded flex items-center gap-1">
+              <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
                 Reviewed
               </span>
             )}
           </div>
           {card.status === "uploaded" && card.item && (
-            <div className="mt-1 text-xs text-slate-400">
+            <div className="mt-1 text-xs text-gray-500">
               <span>Owner: {getOwnerName(card.item.creator)}</span>
-              {card.item.createdAt && (
+              {(card.item.updatedAt || card.item.createdAt) && (
                 <>
                   <span className="mx-2">•</span>
-                  <span>Uploaded: {formatDate(card.item.createdAt)}</span>
+                  <span>Updated: {formatDate(card.item.updatedAt || card.item.createdAt!)}</span>
                 </>
               )}
             </div>
@@ -1135,7 +1212,7 @@ function DocumentCard({
           <>
             {/* Review Mode Checkbox - Show alongside existing actions */}
             {reviewMode && card.item?.id && onItemReviewed && (
-              <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 hover:bg-brand-500/20 transition-colors">
+              <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-50 hover:bg-brand-100 transition-colors">
                 <input
                   type="checkbox"
                   checked={isReviewed}
@@ -1144,9 +1221,9 @@ function DocumentCard({
                       onItemReviewed(card.item.id);
                     }
                   }}
-                  className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
+                  className="w-4 h-4 rounded border-gray-300 bg-white text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
                 />
-                <span className="text-xs font-medium text-brand-300 whitespace-nowrap">
+                <span className="text-xs font-medium text-brand-700 whitespace-nowrap">
                   {isReviewed ? "Reviewed" : "Review"}
                 </span>
               </label>
@@ -1155,7 +1232,7 @@ function DocumentCard({
             {onDownload && card.item?.s3Key && (
               <button
                 onClick={onDownload}
-                className="p-2 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded transition-colors"
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded transition-colors"
                 title="Download"
               >
                 <Download className="w-4 h-4" />
@@ -1163,7 +1240,7 @@ function DocumentCard({
             )}
             <button
               onClick={onEdit}
-              className="p-2 text-slate-400 hover:text-yellow-400 hover:bg-slate-700 rounded transition-colors"
+              className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-gray-100 rounded transition-colors"
               title="Edit"
             >
               <Edit2 className="w-4 h-4" />
@@ -1172,7 +1249,7 @@ function DocumentCard({
               <button
                 onClick={onDelete}
                 disabled={isDeleting}
-                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                 title="Delete"
               >
                 <Trash2 className="w-4 h-4" />
@@ -1182,9 +1259,10 @@ function DocumentCard({
         ) : (
           <button
             onClick={onAdd}
-            className="px-3 py-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 rounded transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded transition-colors flex items-center gap-1"
           >
-            ➕ add
+            <Plus className="w-3 h-3" />
+            Add more
           </button>
         )}
       </div>
@@ -1217,7 +1295,7 @@ function AddDocumentForm({
     });
   }
   const [fields, setFields] = useState<Record<string, any>>(initialFields);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<Record<string, File | null>>({});
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   
@@ -1280,6 +1358,7 @@ function AddDocumentForm({
     e.preventDefault();
     
     let isValid = true;
+    // Validate non-file fields
     for (const field of template.fields) {
       if (field.type === "file") continue;
       const value = fields[field.name] || "";
@@ -1294,6 +1373,16 @@ function AddDocumentForm({
       // Dropdown fields don't need validation beyond required check
     }
     
+    // Validate file fields
+    for (const field of template.fields) {
+      if (field.type === "file" && field.required) {
+        if (!files[field.name]) {
+          setFieldErrors(prev => ({ ...prev, [field.name]: "This field is required" }));
+          isValid = false;
+        }
+      }
+    }
+    
     if (!isValid) return;
     
     setSaving(true);
@@ -1303,7 +1392,33 @@ function AddDocumentForm({
         alert("Vault is locked. Please unlock it first.");
         return;
       }
-      await onSave(fields, file, vaultKey);
+      
+      // For Tax Records with multiple files, combine them into a zip
+      let fileToUpload: File | null = null;
+      const fileFields = template.fields.filter(f => f.type === "file");
+      
+      if (fileFields.length > 1 && documentType === "tax-records") {
+        // Combine multiple files into a zip
+        const JSZipModule = await import("jszip");
+        const JSZip = JSZipModule.default || JSZipModule;
+        const zip = new JSZip();
+        
+        for (const field of fileFields) {
+          const file = files[field.name];
+          if (file) {
+            zip.file(file.name, file);
+          }
+        }
+        
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        fileToUpload = new File([zipBlob], `tax-records-${fields.financialYear || 'documents'}.zip`, { type: "application/zip" });
+      } else {
+        // Single file field or first file - use it directly
+        const firstFileField = fileFields.find(f => files[f.name]);
+        fileToUpload = firstFileField ? files[firstFileField.name] : null;
+      }
+      
+      await onSave(fields, fileToUpload, vaultKey);
       setFieldErrors({});
       // Reset to default values
       const resetFields: Record<string, any> = {};
@@ -1315,7 +1430,7 @@ function AddDocumentForm({
         });
       }
       setFields(resetFields);
-      setFile(null);
+      setFiles({});
     } finally {
       setSaving(false);
     }
@@ -1328,19 +1443,19 @@ function AddDocumentForm({
 
     return (
       <div key={field.name} style={{ marginLeft: `${depth * 20}px` }}>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           {field.label}
-          {field.required && <span className="text-red-400 ml-1">*</span>}
+          {field.required && <span className="text-red-600 ml-1">*</span>}
         </label>
         {renderField(field, value, (val) => handleFieldChange(field.name, val), fieldErrors, documentType, fields)}
         {fieldErrors[field.name] && (
-          <p className="text-xs text-red-400 mt-1">{fieldErrors[field.name]}</p>
+          <p className="text-xs text-red-600 mt-1">{fieldErrors[field.name]}</p>
         )}
         {field.helpText && (
-          <p className="text-xs text-slate-400 mt-1">{field.helpText}</p>
+          <p className="text-xs text-gray-500 mt-1">{field.helpText}</p>
         )}
         {showConditional && field.conditionalFields && field.conditionalFields.fields.length > 0 && (
-          <div className="mt-3 space-y-3 pl-4 border-l-2 border-slate-700">
+          <div className="mt-3 space-y-3 pl-4 border-l-2 border-gray-300">
             {field.conditionalFields.fields.map(condField => renderFieldWithWrapper(condField, depth + 1))}
           </div>
         )}
@@ -1357,11 +1472,11 @@ function AddDocumentForm({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60 overflow-y-auto p-4">
-      <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-2xl max-h-[90vh] flex flex-col my-8">
+      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-2xl max-h-[90vh] flex flex-col my-8 shadow-large">
         <div className="p-6 pb-4">
-          <h3 className="text-lg font-bold text-white mb-4">Add {template.label}</h3>
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Add {template.label}</h3>
           {template.helpText && (
-            <p className="text-sm text-slate-300 mb-4 p-3 bg-slate-700/30 rounded-lg">
+            <p className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
               {template.helpText}
             </p>
           )}
@@ -1369,33 +1484,46 @@ function AddDocumentForm({
         <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto flex-1 px-6 pb-6">
           {/* Title field - allow editing during first time fill */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Title
             </label>
             <input
               type="text"
               value={fields.title || ""}
               onChange={(e) => setFields({ ...fields, title: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-brand-500"
               placeholder="Enter title"
             />
           </div>
           {template.fields.map(field => {
             if (field.type === "file") {
+              const inputId = `file-input-${field.name}`;
               return (
                 <div key={field.name}>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                  <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-2">
                     {field.label}
-                    {field.required && <span className="text-red-400 ml-1">*</span>}
+                    {field.required && <span className="text-red-600 ml-1">*</span>}
                   </label>
                   <input
+                    id={inputId}
                     type="file"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="w-full text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files?.[0] || null;
+                      setFiles(prev => ({ ...prev, [field.name]: selectedFile }));
+                      // Clear error when file is selected
+                      if (selectedFile) {
+                        setFieldErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors[field.name];
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    className="w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
                   />
-                {/* //   {!field.required && (
-                //     <p className="text-xs text-slate-400 mt-1">Optional</p>
-                //   )} */}
+                  {fieldErrors[field.name] && (
+                    <p className="text-xs text-red-400 mt-1">{fieldErrors[field.name]}</p>
+                  )}
                 </div>
               );
             }
@@ -1422,11 +1550,11 @@ function AddDocumentForm({
               )}
             </>
           )}
-          <div className="flex items-center gap-3 pt-4 border-t border-slate-700 sticky bottom-0 bg-slate-800 pb-2 -mx-6 px-6 mt-4">
+          <div className="flex items-center gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white pb-2 -mx-6 px-6 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
             >
               Cancel
             </button>
@@ -1553,30 +1681,52 @@ function EditDocumentForm({
 
   const renderFieldWithWrapper = (field: FieldDefinition, depth: number = 0) => {
     const value = fields[field.name];
-    const showConditional = field.conditionalFields && 
-      fields[field.conditionalFields.condition] === field.conditionalFields.value;
+    // Check if conditional fields should be shown
+    let showConditional = false;
+    if (field.conditionalFields) {
+      const conditionValue = fields[field.conditionalFields.condition];
+      const expectedValue = field.conditionalFields.value;
+      if (Array.isArray(expectedValue)) {
+        showConditional = expectedValue.includes(conditionValue);
+      } else {
+        showConditional = conditionValue === expectedValue;
+      }
+    }
+    // Check if this field itself should be shown
+    let showField = true;
+    if (field.showWhen) {
+      const conditionValue = fields[field.showWhen.field];
+      const expectedValue = field.showWhen.value;
+      if (Array.isArray(expectedValue)) {
+        showField = expectedValue.includes(conditionValue);
+      } else {
+        showField = conditionValue === expectedValue;
+      }
+    }
+    
+    if (!showField) return null;
 
     return (
       <div key={field.name} style={{ marginLeft: `${depth * 20}px` }}>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           {field.label}
-          {field.required && <span className="text-red-400 ml-1">*</span>}
+          {field.required && <span className="text-red-600 ml-1">*</span>}
         </label>
         {renderField(field, value, (val) => handleFieldChange(field.name, val), fieldErrors, item.type, fields)}
         {fieldErrors[field.name] && (
-          <p className="text-xs text-red-400 mt-1">{fieldErrors[field.name]}</p>
+          <p className="text-xs text-red-600 mt-1">{fieldErrors[field.name]}</p>
         )}
         {field.helpText && (
-          <p className="text-xs text-slate-400 mt-1">{field.helpText}</p>
+          <p className="text-xs text-gray-500 mt-1">{field.helpText}</p>
         )}
         {showConditional && field.conditionalFields && field.conditionalFields.fields.length > 0 && (
-          <div className="mt-3 space-y-3 pl-4 border-l-2 border-slate-700">
+          <div className="mt-3 space-y-3 pl-4 border-l-2 border-gray-300">
             {field.conditionalFields.fields.map(condField => renderFieldWithWrapper(condField, depth + 1))}
           </div>
         )}
         {field.name === "hasNominee" && value === "No" && (
-          <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-xs text-yellow-400">
+          <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-xs text-yellow-700">
               💡 Best practice: Add a nominee to your account as soon as possible. This helps your family access funds when needed.
             </p>
           </div>
@@ -1587,24 +1737,24 @@ function EditDocumentForm({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60 overflow-y-auto p-4">
-      <div className="bg-slate-800 rounded-lg border border-slate-700 w-full max-w-2xl p-6 my-8 max-h-[90vh] flex flex-col">
-        <h3 className="text-lg font-bold text-white mb-4">Edit {template.label}</h3>
+      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-2xl p-6 my-8 max-h-[90vh] flex flex-col shadow-large">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Edit {template.label}</h3>
         {template.helpText && (
-          <p className="text-sm text-slate-300 mb-4 p-3 bg-slate-700/30 rounded-lg">
+          <p className="text-sm text-gray-600 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
             {template.helpText}
           </p>
         )}
         <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto flex-1 pr-2">
           {/* Title field */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Title
             </label>
             <input
               type="text"
               value={fields.title || item.title}
               onChange={(e) => setFields({ ...fields, title: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-brand-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-900 text-sm focus:outline-none focus:border-brand-500"
               placeholder="Enter title"
               required
             />
@@ -1615,41 +1765,23 @@ function EditDocumentForm({
             if (field.type === "file") {
               return (
                 <div key={field.name}>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    {file ? "Replace Document (optional)" : "Document (optional)"}
+                  <label htmlFor={`file-input-edit-${field.name}`} className="block text-sm font-medium text-gray-700 mb-2">
+                    {hasDocument && !file ? `${field.label} (Replace)` : field.label}
+                    {field.required && <span className="text-red-600 ml-1">*</span>}
                   </label>
                   {hasDocument && fileName && !file && (
-                    <div className="mb-2 p-2 bg-slate-700/50 rounded border border-slate-600">
-                      <p className="text-xs text-slate-300">
-                        <span className="text-slate-400">Current document:</span> {fileName}
+                    <div className="mb-2 p-2 bg-gray-50 rounded border border-gray-300">
+                      <p className="text-xs text-gray-600">
+                        <span className="text-gray-500">Current document:</span> {fileName}
                       </p>
                     </div>
                   )}
-                  <div className="relative">
-                    {hasDocument && !file ? (
-                      <>
-                        <input
-                          type="file"
-                          onChange={(e) => setFile(e.target.files?.[0] || null)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                          id={`file-input-${item.id}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => document.getElementById(`file-input-${item.id}`)?.click()}
-                          className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-300 cursor-pointer hover:border-slate-600 hover:bg-slate-800 transition-colors font-medium"
-                        >
-                          Choose File
-                        </button>
-                      </>
-                    ) : (
-                      <input
-                        type="file"
-                        onChange={(e) => setFile(e.target.files?.[0] || null)}
-                        className="w-full text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white [&::file-selector-button]:hidden [&::-webkit-file-upload-button]:hidden"
-                      />
-                    )}
-                  </div>
+                  <input
+                    id={`file-input-edit-${field.name}`}
+                    type="file"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 file:bg-brand-600 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white"
+                  />
                 </div>
               );
             }
@@ -1676,11 +1808,11 @@ function EditDocumentForm({
               )}
             </>
           )}
-          <div className="flex items-center gap-3 pt-4 border-t border-slate-700 sticky bottom-0 bg-slate-800 pb-2 -mx-2 px-2 mt-4">
+          <div className="flex items-center gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white pb-2 -mx-2 px-2 mt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
             >
               Cancel
             </button>
@@ -1730,12 +1862,14 @@ function DocumentSectionsView({
   onItemReviewed?: (itemId: string) => void;
   onCloseAndReturnToReview?: () => void;
 }) {
-  // For Finance, group into Bank Accounts and Investments sections
+  // For Finance, group into Bank Accounts, Investments, and Tax Records sections
   if (category.id === "finance-investments") {
     const bankAccountTemplate = templates.find(t => t.type === "bank-account");
     const investmentTemplate = templates.find(t => t.type === "investment");
+    const taxRecordsTemplate = templates.find(t => t.type === "tax-records");
     const bankAccounts = itemsByType["bank-account"] || [];
     const investments = itemsByType["investment"] || [];
+    const taxRecords = itemsByType["tax-records"] || [];
 
     return (
       <div className="space-y-6">
@@ -1782,6 +1916,30 @@ function DocumentSectionsView({
           onItemReviewed={onItemReviewed}
           onCloseAndReturnToReview={onCloseAndReturnToReview}
         />
+
+        {/* Tax Records Section */}
+        {taxRecordsTemplate && (
+          <DocumentSection
+            title="Tax Records"
+            description="Add your tax records"
+            template={taxRecordsTemplate}
+            items={taxRecords}
+            minRows={0}
+            onAdd={() => onAddDocument("tax-records")}
+            onEdit={onEditDocument}
+            onDelete={onDeleteDocumentWithConfirm || ((id: string, title: string) => {
+              if (confirm(`Are you sure you want to delete "${title}"?`)) {
+                onDeleteDocument(id);
+              }
+            })}
+            onDownload={onDownloadDocument}
+            isDeleting={isDeleting}
+            reviewMode={reviewMode}
+            reviewedItems={reviewedItems}
+            onItemReviewed={onItemReviewed}
+            onCloseAndReturnToReview={onCloseAndReturnToReview}
+          />
+        )}
       </div>
     );
   }
@@ -2141,6 +2299,7 @@ function DocumentSection({
     s3Key?: string | null; 
     iv?: string | null;
     createdAt?: string;
+    updatedAt?: string;
     creator?: {
       id: string;
       email: string;
@@ -2178,20 +2337,52 @@ function DocumentSection({
     return creator.fullName || creator.email || "Unknown";
   };
 
+  const [showTooltip, setShowTooltip] = useState(false);
+  const helperText = template?.type ? SECTION_HELPER_TEXTS[template.type] : null;
+
   return (
-    <div className="bg-slate-800/50 rounded-lg border border-slate-700 p-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-soft">
       <div className="flex items-center justify-between mb-3">
-        <div>
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
-          <p className="text-xs text-slate-400 mt-1">{description}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+            {helperText && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onMouseEnter={() => setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                  onFocus={() => setShowTooltip(true)}
+                  onBlur={() => setShowTooltip(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                  aria-label={`Help for ${title} section`}
+                  title={`Help for ${title} section`}
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+                {showTooltip && (
+                  <div className="absolute left-0 top-full mt-2 z-50 w-80 max-w-[90vw] rounded-lg border border-gray-300 bg-white p-4 shadow-large">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-normal break-words">
+                      {helperText}
+                    </p>
+                    <div className="absolute -top-1 left-4 w-2 h-2 rotate-45 bg-white border-l border-t border-gray-300"></div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">{description}</p>
         </div>
-        <button
-          onClick={onAdd}
-          className="px-3 py-1.5 text-xs font-medium text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 rounded transition-colors flex items-center gap-1"
-        >
-          <Plus className="w-3 h-3" />
-          Add more
-        </button>
+        {/* Hide "Add more" button for Aadhaar and PAN if item already exists (only one allowed) */}
+        {!(template?.type === "aadhaar" || template?.type === "pan") || items.length === 0 ? (
+          <button
+            onClick={onAdd}
+            className="px-3 py-1.5 text-xs font-medium text-brand-600 hover:text-brand-700 hover:bg-brand-50 rounded transition-colors flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Add more
+          </button>
+        ) : null}
       </div>
       
       <div className="space-y-2">
@@ -2204,42 +2395,37 @@ function DocumentSection({
           return (
             <div
               key={item.id || index}
-              className={`flex items-center justify-between p-3 rounded border transition-colors ${
-                isItemReviewed ? "bg-green-500/5 border-green-500/50" : "bg-slate-900/50 border-slate-700 hover:border-slate-600"
+              className={`flex items-center justify-between p-3 rounded border transition-colors shadow-soft ${
+                isItemReviewed ? "bg-green-50 border-green-200" : "bg-white border-gray-200 hover:border-gray-300 hover:shadow-medium"
               }`}
             >
               <div className="flex items-center gap-3 flex-1">
                 {isPlaceholder ? (
-                  <Plus className="w-4 h-4 text-slate-500" />
+                  <Plus className="w-4 h-4 text-gray-400" />
                 ) : (
-                  <Check className="w-4 h-4 text-green-400" />
+                  <Check className="w-4 h-4 text-green-600" />
                 )}
                 <div className="flex-1">
                   {isPlaceholder ? (
-                    <span className="text-sm text-slate-500"></span>
+                    <span className="text-sm text-gray-400"></span>
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-sm font-medium text-white">{item.title || title}</h4>
-                        {template && (
-                          <span className="text-xs px-2 py-0.5 bg-slate-700/50 text-slate-300 rounded">
-                            {template.label}
-                          </span>
-                        )}
+                        <h4 className="text-sm font-medium text-gray-900">{item.title || title}</h4>
                         {isItemReviewed && (
-                          <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-400 rounded flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded flex items-center gap-1">
                             <CheckCircle2 className="w-3 h-3" />
                             Reviewed
                           </span>
                         )}
                       </div>
                       {!isPlaceholder && (
-                        <div className="mt-1 text-xs text-slate-400">
+                        <div className="mt-1 text-xs text-gray-500">
                           <span>Owner: {getOwnerName(item.creator)}</span>
-                          {item.createdAt && (
+                          {(item.updatedAt || item.createdAt) && (
                             <>
                               <span className="mx-2">•</span>
-                              <span>Uploaded: {formatDate(item.createdAt)}</span>
+                              <span>Updated: {formatDate(item.updatedAt || item.createdAt!)}</span>
                             </>
                           )}
                         </div>
@@ -2253,7 +2439,7 @@ function DocumentSection({
                 <div className="flex items-center gap-2">
                   {/* Review Mode Checkbox - Show alongside existing actions */}
                   {reviewMode && item.id && onItemReviewed && (
-                    <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-500/10 hover:bg-brand-500/20 transition-colors">
+                    <label className="flex items-center gap-2 cursor-pointer px-2 py-1.5 rounded-md border border-brand-500/50 bg-brand-50 hover:bg-brand-100 transition-colors">
                       <input
                         type="checkbox"
                         checked={!!isItemReviewed}
@@ -2262,9 +2448,9 @@ function DocumentSection({
                             onItemReviewed(item.id);
                           }
                         }}
-                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
+                        className="w-4 h-4 rounded border-gray-300 bg-white text-brand-500 focus:ring-brand-500 focus:ring-2 focus:ring-offset-0"
                       />
-                      <span className="text-xs font-medium text-brand-300 whitespace-nowrap">
+                      <span className="text-xs font-medium text-brand-700 whitespace-nowrap">
                         {isItemReviewed ? "Reviewed" : "Review"}
                       </span>
                     </label>
@@ -2273,7 +2459,7 @@ function DocumentSection({
                   {onDownload && hasFile && (
                     <button
                       onClick={() => onDownload(item.id)}
-                      className="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-700 rounded transition-colors"
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-gray-100 rounded transition-colors"
                       title="Download"
                     >
                       <Download className="w-4 h-4" />
@@ -2281,7 +2467,7 @@ function DocumentSection({
                   )}
                   <button
                     onClick={() => onEdit(item.id, template?.type || "")}
-                    className="p-1.5 text-slate-400 hover:text-yellow-400 hover:bg-slate-700 rounded transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-yellow-600 hover:bg-gray-100 rounded transition-colors"
                     title="Edit"
                   >
                     <Edit2 className="w-4 h-4" />
@@ -2289,7 +2475,7 @@ function DocumentSection({
                   <button
                     onClick={() => onDelete(item.id, item.title || title)}
                     disabled={isDeleting === item.id}
-                    className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-slate-700 rounded transition-colors disabled:opacity-50"
+                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                     title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />

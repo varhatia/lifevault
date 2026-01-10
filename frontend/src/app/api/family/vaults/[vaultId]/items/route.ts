@@ -3,6 +3,7 @@ import { getUserFromRequest } from '@/lib/api/auth';
 import prisma from '@/lib/prisma';
 import { uploadEncryptedFile, generateS3Key } from '@/lib/api/s3';
 import { randomUUID } from 'crypto';
+import { canUploadFile, SubscriptionPlan, bytesToMB } from '@/lib/plan-limits';
 
 /**
  * @route   GET /api/family/vaults/[vaultId]/items
@@ -163,6 +164,51 @@ export async function POST(
 
     // File is optional - only process if provided
     const hasFile = encryptedBlob && iv;
+
+    // Check storage limits if file is provided
+    // Only check if user is vault owner (storage counts toward owner's limit)
+    if (hasFile) {
+      const vault = await prisma.familyVault.findUnique({
+        where: { id: vaultId },
+        select: { ownerId: true },
+      });
+
+      if (vault && vault.ownerId === userId) {
+        const plan = ((user as any).subscriptionPlan || "free") as SubscriptionPlan;
+        
+        // Calculate encrypted blob size
+        const encryptedBlobSizeBytes = Buffer.from(encryptedBlob, 'base64').length;
+        const fileSizeMB = bytesToMB(encryptedBlobSizeBytes);
+
+        // Get current storage usage
+        const usageRes = await fetch(`${req.nextUrl.origin}/api/user/usage`, {
+          headers: {
+            'Cookie': req.headers.get('cookie') || '',
+          },
+        });
+
+        let currentStorageMB = 0;
+        if (usageRes.ok) {
+          const usageData = await usageRes.json();
+          currentStorageMB = usageData.usage?.storageUsedMB || 0;
+        }
+
+        if (!canUploadFile(plan, currentStorageMB, fileSizeMB)) {
+          return NextResponse.json(
+            {
+              error: 'Storage limit reached',
+              limitReached: true,
+              limitType: 'storage',
+              currentStorageMB,
+              fileSizeMB,
+              maxAllowedMB: plan === "free" ? 5 : Infinity,
+              message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LifeVault Plus for unlimited storage.`,
+            },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     // Generate unique item ID
     const itemId = randomUUID();

@@ -19,7 +19,10 @@ import AddNomineeModal from "./components/AddNomineeModal";
 import MemberManagementModal from "./components/MemberManagementModal";
 import DeleteVaultModal from "@/components/vaults/DeleteVaultModal";
 import FolderDetailView, { DOCUMENT_TEMPLATES } from "@/components/vaults/FolderDetailView";
-import { Download, Trash2, Users, UserPlus, ArrowRight, CheckCircle2, Bell, Calendar, Shield } from "lucide-react";
+import { Download, Trash2, Users, UserPlus, ArrowRight, CheckCircle2, Bell, Calendar, Shield, Sparkles, Info } from "lucide-react";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import UpgradeModal from "@/components/UpgradeModal";
+import { canCreateVault, getPlanLimits } from "@/lib/plan-limits";
 import RecoveryKeyResetModal from "./components/RecoveryKeyResetModal";
 import VaultSetupWizard from "./components/VaultSetupWizard";
 import ReadinessImprovementWizard from "./components/ReadinessImprovementWizard";
@@ -99,7 +102,16 @@ const CATEGORY_NAMES: Record<string, string> = CATEGORIES_CONFIG.reduce((acc, ca
 export default function MyVaultPage() {
   const router = useRouter();
   const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const { plan, usage, refetch: refetchUsage } = usePlanUsage();
   const [vaults, setVaults] = useState<MyVault[]>([]);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeModalProps, setUpgradeModalProps] = useState<{
+    limitType?: "vaults" | "nominees" | "members" | "storage";
+    currentCount?: number;
+    maxAllowed?: number;
+    message?: string;
+  }>({});
+  const [showTierTooltip, setShowTierTooltip] = useState(false);
   const [selectedVault, setSelectedVault] = useState<MyVault | null>(null);
   const [items, setItems] = useState<VaultItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,13 +292,29 @@ export default function MyVaultPage() {
 
       if (!response.ok) {
         const error = await response.json();
+        // Check if it's a storage limit error
+        if (error.limitReached && error.limitType === 'storage') {
+          setUpgradeModalProps({
+            limitType: "storage",
+            currentStorageMB: error.currentStorageMB,
+            fileSizeMB: error.fileSizeMB,
+            maxAllowed: error.maxAllowedMB,
+            message: error.message,
+          });
+          setShowUpgradeModal(true);
+          return; // Don't throw, just show upgrade modal
+        }
         throw new Error(error.error || "Failed to upload");
       }
 
       await loadVaultItems(selectedVault.id);
+      await refetchUsage(); // Refresh usage stats
     } catch (error) {
       console.error("Error uploading document:", error);
-      alert(error instanceof Error ? error.message : "Failed to upload document");
+      // Only show alert for non-limit errors
+      if (!(error instanceof Error && error.message.includes("Storage limit"))) {
+        alert(error instanceof Error ? error.message : "Failed to upload document");
+      }
     }
   };
 
@@ -921,11 +949,24 @@ export default function MyVaultPage() {
 
       if (!response.ok) {
         const error = await response.json();
+        // Check if it's a storage limit error
+        if (error.limitReached && error.limitType === "storage") {
+          setUpgradeModalProps({
+            limitType: "storage",
+            currentStorageMB: error.currentStorageMB,
+            fileSizeMB: error.fileSizeMB,
+            maxAllowed: error.maxAllowedMB,
+            message: error.message,
+          });
+          setShowUpgradeModal(true);
+          throw new Error(error.message || "Storage limit reached");
+        }
         throw new Error(error.error || "Failed to upload");
       }
 
-      // Refresh list
+      // Refresh list and usage
       await loadVaultItems(selectedVault.id);
+      await refetchUsage();
     } catch (error: any) {
       console.error("Error uploading file:", error);
       throw error;
@@ -1072,9 +1113,9 @@ export default function MyVaultPage() {
   if (loading && vaults.length === 0) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">My Vaults</h1>
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
-          <p className="text-xs text-slate-300">Loading...</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-gray-900">My Vaults</h1>
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+          <p className="text-sm text-gray-600">Loading...</p>
         </div>
       </div>
     );
@@ -1447,6 +1488,7 @@ export default function MyVaultPage() {
             
             setShowCreateModal(false);
             await loadVaults(); // Refresh vault list
+            await refetchUsage(); // Refresh usage stats
             
             // Select the newly created vault after loading
             setTimeout(() => {
@@ -1459,34 +1501,137 @@ export default function MyVaultPage() {
         />
       )}
 
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        {...upgradeModalProps}
+      />
+
       <div className="space-y-6">
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">My Vaults</h1>
-            <p className="mt-1 text-xs text-slate-300">
-              Private, client-side encrypted vaults. Each vault has its own password.
-            </p>
+        <header className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-2xl font-semibold tracking-tight text-gray-900">My Vaults</h1>
+                {/* Tier Badge */}
+                <div className="relative">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                      plan === "plus"
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                        : "bg-gray-100 text-gray-700 border border-gray-300"
+                    }`}
+                    onMouseEnter={() => plan === "free" && setShowTierTooltip(true)}
+                    onMouseLeave={() => setShowTierTooltip(false)}
+                  >
+                    {plan === "plus" ? (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Plus
+                      </>
+                    ) : (
+                      "Free"
+                    )}
+                  </span>
+                  {/* Tooltip for Free plan */}
+                  {plan === "free" && showTierTooltip && (
+                    <div className="absolute left-0 top-full mt-2 w-64 z-50 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-gray-900 mb-1">Upgrade to Plus</p>
+                          <p className="text-xs text-gray-600">
+                            Get unlimited storage, multiple nominees, unlimited members, and priority support.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="absolute -top-1 left-4 w-2 h-2 rotate-45 bg-white border-l border-t border-gray-200"></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1 text-sm text-gray-600">
+                Secure, encrypted vaults. No one other than you can see your stored details. Not even us.
+              </p>
+            </div>
+            {/* Show Create Vault button with limit check */}
+            {user && (
+              <button
+                onClick={() => {
+                  // Check if user can create vault
+                  if (canCreateVault(plan, usage.vaultCount)) {
+                    setShowCreateModal(true);
+                  } else {
+                    setUpgradeModalProps({
+                      limitType: "vaults",
+                      currentCount: usage.vaultCount,
+                      maxAllowed: plan === "free" ? 1 : Infinity,
+                    });
+                    setShowUpgradeModal(true);
+                  }
+                }}
+                className="rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+              >
+                + Create Vault
+              </button>
+            )}
           </div>
-          {/* Only show Create Vault button if user doesn't already own a vault */}
-          {user && !vaults.some(v => v.ownerId === user.id || v.owner?.id === user.id) && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-brand-700"
-            >
-              + Create Vault
-            </button>
+
+          {/* Storage usage bar (free plan style like Google Drive) */}
+          {plan === "free" && (
+            <div className="mt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
+                  <span>Storage</span>
+                  <span>
+                    {usage.storageUsedMB.toFixed(2)} MB of{" "}
+                    {getPlanLimits(plan).maxStorageMB} MB used
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-brand-500 transition-all"
+                    style={{
+                      width: `${Math.min(
+                        (usage.storageUsedMB /
+                          getPlanLimits(plan).maxStorageMB) *
+                          100,
+                        100
+                      ).toFixed(2)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setUpgradeModalProps({
+                    limitType: "storage",
+                    currentStorageMB: usage.storageUsedMB,
+                    maxAllowed: getPlanLimits(plan).maxStorageMB,
+                    message:
+                      "Upgrade to LifeVault Plus for unlimited storage and more members/nominees.",
+                  });
+                  setShowUpgradeModal(true);
+                }}
+                className="mt-1 inline-flex items-center justify-center rounded-md border border-brand-500 px-3 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 transition-colors"
+              >
+                Upgrade for more storage
+              </button>
+            </div>
           )}
         </header>
 
         {/* Vault List */}
         {vaults.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-8 text-center">
-            <p className="text-sm text-slate-300 mb-4">No vaults yet. Create your first vault to get started.</p>
+          <div className="rounded-lg border border-gray-200 bg-white p-12 text-center shadow-soft">
+            <p className="text-base text-gray-600 mb-4">No vaults yet. Create your first vault to get started.</p>
             {/* Only show Create button if user doesn't already own a vault */}
             {user && !vaults.some(v => v.ownerId === user.id || v.owner?.id === user.id) && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                className="rounded-md bg-brand-500 px-6 py-2.5 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
               >
                 Create Your First Vault
               </button>
@@ -1500,19 +1645,17 @@ export default function MyVaultPage() {
               return (
                 <div
                   key={vault.id}
-                  className={`rounded-xl border p-4 transition-colors ${
+                  className={`rounded-lg border p-4 transition-all cursor-pointer shadow-soft hover:shadow-medium ${
                     isSelected
-                      ? "border-brand-500 bg-slate-900"
-                      : "border-slate-800 bg-slate-900/60 hover:border-slate-700"
+                      ? "border-brand-500 bg-brand-50"
+                      : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
+                  onClick={() => handleSelectVault(vault)}
                 >
                   <div className="flex items-start justify-between">
-                    <div
-                      className="flex-1 cursor-pointer"
-                      onClick={() => handleSelectVault(vault)}
-                    >
-                      <h3 className="text-base font-semibold text-white">{vault.name}</h3>
-                      <div className="mt-2 flex gap-3 text-xs text-slate-400">
+                    <div className="flex-1">
+                      <h3 className={`text-base font-semibold ${isSelected ? 'text-brand-700' : 'text-gray-900'}`}>{vault.name}</h3>
+                      <div className="mt-2 flex gap-3 text-xs text-gray-500">
                         <span>{vault._count?.items || 0} items</span>
                         <span>•</span>
                         <span>{vault._count?.nominees || 0} nominees</span>
@@ -1520,7 +1663,7 @@ export default function MyVaultPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       {isUnlocked && (
-                        <span className="rounded-full bg-brand-500/20 px-2 py-1 text-[10px] text-brand-300">
+                        <span className="rounded-full bg-brand-500 px-2 py-1 text-[10px] font-medium text-white">
                           Unlocked
                         </span>
                       )}
@@ -1532,7 +1675,7 @@ export default function MyVaultPage() {
                             setVaultToDelete(vault);
                             setShowDeleteModal(true);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Delete vault"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1548,10 +1691,10 @@ export default function MyVaultPage() {
 
         {/* Selected Vault Content - Show unlock prompt if locked */}
         {selectedVault && !vaultKeys.has(selectedVault.id) && (
-          <div className="space-y-4 border-t border-slate-800 pt-6">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/70 p-6 text-center">
-              <h2 className="text-lg font-semibold text-white mb-2">{selectedVault.name}</h2>
-              <p className="text-sm text-slate-400 mb-4">
+          <div className="space-y-4 border-t border-gray-200 pt-6">
+            <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-soft">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">{selectedVault.name}</h2>
+              <p className="text-sm text-gray-600 mb-4">
                 Unlock this vault to view your readiness score, review your documents, and manage your items.
               </p>
               <button
@@ -1559,7 +1702,7 @@ export default function MyVaultPage() {
                   setVaultToUnlock(selectedVault);
                   setShowUnlockModal(true);
                 }}
-                className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                className="rounded-md bg-brand-500 px-6 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
               >
                 Unlock Vault
               </button>
@@ -1622,7 +1765,7 @@ export default function MyVaultPage() {
             hasHealthInsurance;
 
           return (
-            <div className="space-y-6 border-t border-slate-800 pt-6">
+            <div className="space-y-6 border-t border-gray-200 pt-6">
               {/* Show wizard if user is owner and setup is incomplete */}
               {isOwner && !isSetupComplete && (
                 <VaultSetupWizard
@@ -1642,6 +1785,56 @@ export default function MyVaultPage() {
                     setShowNomineeModal(true);
                   }}
                   readinessScore={readinessScore?.score ?? null}
+                />
+              )}
+
+              {/* Show readiness score section once basic vault setup is complete */}
+              {isOwner && isSetupComplete && readinessScore && (
+                <ReadinessSection
+                  myVaults={vaults}
+                  items={items}
+                  membersCount={selectedVault.members?.filter((m: any) => m.acceptedAt !== null).length || 0}
+                  nominees={allNominees}
+                  activityLogs={activityLogs}
+                  loading={dashboardLoading}
+                  onShowImprovements={() => setShowImprovementWizard(true)}
+                  onCategoryClick={(categoryId) => {
+                    const category = CATEGORIES_CONFIG.find(c => c.id === categoryId);
+                    if (category) {
+                      setSelectedCategory(category);
+                      setShowFolderDetail(true);
+                    }
+                  }}
+                  onRotatePassword={() => {
+                    if (selectedVault && vaultKeys.has(selectedVault.id)) {
+                      const vaultKeyData = vaultKeys.get(selectedVault.id);
+                      if (vaultKeyData) {
+                        setRecoveryResetVault({
+                          id: selectedVault.id,
+                          name: selectedVault.name,
+                          keyHex: vaultKeyData.keyHex,
+                        });
+                        setShowRecoveryResetModal(true);
+                      }
+                    }
+                  }}
+                  onRotateKeys={() => {
+                    if (selectedVault && vaultKeys.has(selectedVault.id)) {
+                      const vaultKeyData = vaultKeys.get(selectedVault.id);
+                      if (vaultKeyData) {
+                        setRecoveryResetVault({
+                          id: selectedVault.id,
+                          name: selectedVault.name,
+                          keyHex: vaultKeyData.keyHex,
+                        });
+                        setShowRecoveryResetModal(true);
+                      }
+                    }
+                  }}
+                  onAddMember={handleOpenMemberModal}
+                  reviewStatus={reviewStatus}
+                  onReviewClick={() => setShowReviewModal(true)}
+                  onReminderSettingsClick={() => setShowReminderSettings(true)}
                 />
               )}
 
@@ -1780,34 +1973,34 @@ export default function MyVaultPage() {
 
               {/* Review Reminder Nudge - Only for owners */}
               {reviewStatus?.isOwner && reviewStatus.isReviewDue && (
-                <div className="rounded-lg border border-orange-500/50 bg-orange-500/10 p-4 mb-6">
+                <div className="rounded-lg border border-orange-200 bg-orange-50 p-4 mb-6 shadow-soft">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
-                      <Bell className="w-5 h-5 text-orange-400 mt-0.5" />
+                      <Bell className="w-5 h-5 text-orange-600 mt-0.5" />
                       <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-orange-200">
+                        <h3 className="text-sm font-semibold text-orange-900">
                           Time to Review Your Vault
                         </h3>
-                        <p className="text-xs text-orange-300/80 mt-1">
+                        <p className="text-xs text-orange-700 mt-1">
                           It's been a while since your last review. Review your vault items to ensure all information is up to date.
                         </p>
                         {reviewStatus.lastReviewedAt && (
-                          <p className="text-xs text-orange-300/60 mt-1">
+                          <p className="text-xs text-orange-600 mt-1">
                             Last reviewed: {new Date(reviewStatus.lastReviewedAt).toLocaleDateString()}
                           </p>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
                       <button
                         onClick={() => setShowReminderSettings(true)}
-                        className="px-3 py-1.5 text-xs font-medium text-orange-200 hover:text-orange-100 border border-orange-500/50 rounded-md hover:bg-orange-500/20 transition-colors"
+                        className="px-3 py-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       >
                         Settings
                       </button>
                       <button
                         onClick={() => setShowReviewModal(true)}
-                        className="px-3 py-1.5 text-xs font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md transition-colors flex items-center gap-1.5"
+                        className="px-3 py-1.5 text-xs font-medium text-white bg-brand-500 hover:bg-brand-600 rounded-md transition-colors flex items-center gap-1.5"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Review Now
@@ -1816,53 +2009,6 @@ export default function MyVaultPage() {
                   </div>
                 </div>
               )}
-
-              {/* Readiness Score Section - Only shown after unlock */}
-              <ReadinessSection
-                myVaults={vaults.filter(v => v.id === selectedVault.id)}
-                items={items}
-                membersCount={selectedVault.members?.filter((m: any) => m.acceptedAt !== null).length || 0}
-                nominees={allNominees}
-                activityLogs={activityLogs}
-                loading={dashboardLoading}
-                onShowImprovements={() => setShowImprovementWizard(true)}
-                reviewStatus={reviewStatus}
-                onReviewClick={() => setShowReviewModal(true)}
-                onReminderSettingsClick={() => setShowReminderSettings(true)}
-                onCategoryClick={(categoryId) => {
-                  const category = CATEGORIES_CONFIG.find(c => c.id === categoryId);
-                  if (category) {
-                    setSelectedCategory(category);
-                    setShowFolderDetail(true);
-                    setShowImprovementWizard(false);
-                  }
-                }}
-                onRotatePassword={() => {
-                  // Navigate to forgot password flow for password change
-                  if (confirm("To change your password, you'll need to use the password reset flow. Would you like to proceed?")) {
-                    window.location.href = "/auth/forgot-password";
-                  }
-                  setShowImprovementWizard(false);
-                }}
-                onRotateKeys={() => {
-                  if (selectedVault) {
-                    const vaultKeyData = vaultKeys.get(selectedVault.id);
-                    if (vaultKeyData) {
-                      setRecoveryResetVault({
-                        id: selectedVault.id,
-                        name: selectedVault.name,
-                        keyHex: vaultKeyData.keyHex,
-                      });
-                      setShowRecoveryResetModal(true);
-                      setShowImprovementWizard(false);
-                    }
-                  }
-                }}
-                onAddMember={async () => {
-                  await handleOpenMemberModal();
-                  setShowImprovementWizard(false);
-                }}
-              />
 
               {/* Readiness Improvement Wizard */}
               {showImprovementWizard && (
@@ -1912,16 +2058,13 @@ export default function MyVaultPage() {
               <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-white">{selectedVault.name}</h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Items and nominee access for this vault
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 {/* Only show Nominees button if user is the owner of the vault */}
                 {user && (selectedVault.ownerId === user.id || selectedVault.owner?.id === user.id) && (
                   <button
                     onClick={() => setShowNomineeModal(true)}
-                    className="flex items-center gap-1 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700"
+                    className="flex items-center gap-1 rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                   >
                     <Users className="w-3 h-3" />
                     Nominees
@@ -1929,7 +2072,7 @@ export default function MyVaultPage() {
                 )}
                 <button
                   onClick={handleOpenMemberModal}
-                  className="flex items-center gap-1 rounded-md bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-sm hover:bg-slate-700"
+                  className="flex items-center gap-1 rounded-md bg-white border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
                 >
                   <UserPlus className="w-3 h-3" />
                   Members
@@ -1958,6 +2101,7 @@ export default function MyVaultPage() {
                   if (selectedVault) {
                     await loadVaultItems(selectedVault.id);
                   }
+                  await refetchUsage(); // Refresh usage stats
                 }}
                 vaultKey={nomineeModalVaultKey}
                 vaultId={selectedVault.id}
@@ -1971,6 +2115,15 @@ export default function MyVaultPage() {
                 getVaultKeyHex={async () => {
                   const vaultKeyData = vaultKeys.get(selectedVault.id);
                   return vaultKeyData ? vaultKeyData.keyHex : null;
+                }}
+                onLimitReached={(limitType, currentCount, maxAllowed, message) => {
+                  setUpgradeModalProps({
+                    limitType: "nominees",
+                    currentCount,
+                    maxAllowed,
+                    message,
+                  });
+                  setShowUpgradeModal(true);
                 }}
               />
             )}
@@ -2011,6 +2164,15 @@ export default function MyVaultPage() {
                   }
                   await loadReadinessData();
                 }}
+                onLimitReached={(limitType, currentCount, maxAllowed, message) => {
+                  setUpgradeModalProps({
+                    limitType: "members",
+                    currentCount,
+                    maxAllowed,
+                    message,
+                  });
+                  setShowUpgradeModal(true);
+                }}
                 getVaultKeyHex={async () => {
                   const vaultKeyData = vaultKeys.get(selectedVault.id);
                   return vaultKeyData ? vaultKeyData.keyHex : null;
@@ -2018,14 +2180,15 @@ export default function MyVaultPage() {
               />
             )}
 
-            {/* Categories organized by priority */}
-            <div className="space-y-6">
+            {/* Categories organized by priority - Dropbox Style */}
+            <div className="space-y-8 mt-8">
               {/* Must Have Categories */}
               <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-semibold text-red-400">Must Have</span>
+                <div className="mb-4 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900">Must Have Categories</h2>
+                  <span className="text-sm text-gray-500">Essential documents</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {CATEGORIES_CONFIG.filter(c => c.priority === "must-have").map((category) => (
                     <VaultCategory
                       key={category.id}
@@ -2044,10 +2207,11 @@ export default function MyVaultPage() {
 
               {/* Good to Have Categories */}
               <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-semibold text-amber-400">Good to Have</span>
+                <div className="mb-4 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900">Good to Have Categories</h2>
+                  <span className="text-sm text-gray-500">Recommended documents</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {CATEGORIES_CONFIG.filter(c => c.priority === "good-to-have").map((category) => (
                     <VaultCategory
                       key={category.id}
@@ -2066,10 +2230,11 @@ export default function MyVaultPage() {
 
               {/* Optional Categories */}
               <div>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-400">Optional / Advance</span>
+                <div className="mb-4 flex items-center gap-2">
+                  <h2 className="text-lg font-semibold text-gray-900">Optional / Advanced</h2>
+                  <span className="text-sm text-gray-500">Additional documents</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {CATEGORIES_CONFIG.filter(c => c.priority === "optional").map((category) => (
                     <VaultCategory
                       key={category.id}
@@ -2087,11 +2252,11 @@ export default function MyVaultPage() {
               </div>
             </div>
 
-            <section className="space-y-2">
-              <h3 className="text-sm font-medium">Vault Items ({items.length})</h3>
+            <section className="space-y-3 mt-8">
+              <h3 className="text-base font-semibold text-gray-900">Vault Items ({items.length})</h3>
               {items.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-4 text-xs text-slate-300">
-                  No items yet. Upload your first encrypted file to get started.
+                <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-soft">
+                  <p className="text-sm text-gray-600">No items yet. Upload your first encrypted file to get started.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -2128,35 +2293,68 @@ function VaultCategory({
   onClick?: () => void;
 }) {
   const priorityColors = {
-    "must-have": "border-red-500/50 bg-red-500/5",
-    "good-to-have": "border-amber-500/50 bg-amber-500/5",
-    "optional": "border-slate-700 bg-slate-800/40",
+    "must-have": {
+      border: "border-gray-200",
+      bg: "bg-white",
+      hover: "hover:border-gray-300 hover:shadow-medium",
+      badge: "bg-red-500 text-white",
+      title: "text-gray-900",
+      badgeText: "bg-red-500 text-white",
+    },
+    "good-to-have": {
+      border: "border-gray-200",
+      bg: "bg-white",
+      hover: "hover:border-gray-300 hover:shadow-medium",
+      badge: "bg-amber-500 text-white",
+      title: "text-gray-900",
+      badgeText: "bg-amber-500 text-white",
+    },
+    "optional": {
+      border: "border-gray-200",
+      bg: "bg-white",
+      hover: "hover:border-gray-300 hover:shadow-medium",
+      badge: "bg-gray-400 text-white",
+      title: "text-gray-900",
+      badgeText: "bg-gray-400 text-white",
+    },
   };
 
   const priorityBadge = {
-    "must-have": { text: "Must Have", color: "bg-red-500/20 text-red-400" },
-    "good-to-have": { text: "Good to Have", color: "bg-amber-500/20 text-amber-400" },
-    "optional": { text: "Optional", color: "bg-slate-700 text-slate-400" },
+    "must-have": { text: "Must Have", color: "bg-red-50 text-red-700 border border-red-200" },
+    "good-to-have": { text: "Good to Have", color: "bg-amber-50 text-amber-700 border border-amber-200" },
+    "optional": { text: "Optional", color: "bg-gray-50 text-gray-700 border border-gray-200" },
+  };
+
+  const colors = priority ? priorityColors[priority] : {
+    border: "border-gray-200",
+    bg: "bg-white",
+    hover: "hover:border-gray-300 hover:shadow-medium",
+    badge: "bg-brand-500 text-white",
+    title: "text-gray-900",
+    badgeText: "bg-brand-500 text-white",
   };
 
   return (
     <div
       onClick={onClick}
-      className={`flex cursor-pointer flex-col rounded-lg border p-3 text-xs transition-colors hover:border-slate-600 ${
-        priority ? priorityColors[priority] : "border-slate-800 bg-slate-900/60"
-      }`}
+      className={`group flex cursor-pointer flex-col rounded-lg border p-4 text-sm transition-all ${colors.border} ${colors.bg} ${colors.hover} shadow-soft`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-medium text-slate-100">{title}</span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className={`font-semibold text-sm ${colors.title}`}>{title}</span>
+            {priority && (
+              <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${priorityBadge[priority].color}`}>
+                {priorityBadge[priority].text}
+              </span>
+            )}
           </div>
           {microcopy && (
-            <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{microcopy}</p>
+            <p className="text-xs text-gray-600 mt-1 line-clamp-2 leading-relaxed">{microcopy}</p>
           )}
         </div>
-        <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300 shrink-0">
-          {count} items
+        <span className={`rounded-full ${colors.badge} px-2.5 py-1 text-xs font-semibold shrink-0 min-w-[1.75rem] text-center`}>
+          {count}
         </span>
       </div>
     </div>
@@ -2173,36 +2371,43 @@ function VaultItemCard({
   onDelete: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-100">{item.title}</span>
-          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
+    <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-soft hover:shadow-medium transition-all">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-gray-900">{item.title}</span>
+          <span className="rounded px-2 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-700">
             {item.category}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-          <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-          {item.tags.length > 0 && (
-            <span>• {item.tags.join(", ")}</span>
+        <div className="mt-1.5 flex items-center gap-2 text-xs text-gray-500">
+          {item.creator && (
+            <>
+              <span>Owner: {item.creator.fullName || item.creator.email}</span>
+              <span>•</span>
+            </>
+          )}
+          {item.updatedAt ? (
+            <span>Updated: {new Date(item.updatedAt).toLocaleDateString()}</span>
+          ) : (
+            <span>Updated: {new Date(item.createdAt).toLocaleDateString()}</span>
           )}
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 ml-4 items-center">
         {item.s3Key && (
           <button
             onClick={onDownload}
-            className="rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700 flex items-center gap-1"
+            className="rounded-md bg-brand-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-600 flex items-center gap-1.5 transition-colors"
           >
-            <Download className="h-3 w-3" />
+            <Download className="h-3.5 w-3.5" />
             Download
           </button>
         )}
         <button
           onClick={onDelete}
-          className="rounded-md bg-red-900/50 px-2 py-1 text-xs text-red-300 hover:bg-red-900/70 flex items-center gap-1"
+          className="rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 flex items-center gap-1.5 transition-colors"
         >
-          <Trash2 className="h-3 w-3" />
+          <Trash2 className="h-3.5 w-3.5" />
           Delete
         </button>
       </div>
@@ -2276,20 +2481,20 @@ function ReadinessSection({
 
   if (loading || !readiness) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <p className="text-sm text-slate-400">Loading readiness score...</p>
+      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <p className="text-sm text-gray-600">Loading readiness score...</p>
       </div>
     );
   }
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 md:p-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-4">
+    <section className="rounded-lg border border-gray-200 bg-white p-6 md:p-8 shadow-soft">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-6">
         <div className="max-w-xl">
-          <h2 className="text-2xl md:text-3xl font-semibold tracking-tight">
+          <h2 className="text-xl md:text-2xl font-semibold text-gray-900">
             Your Life Readiness
           </h2>
-          <p className="mt-2 text-sm text-slate-300">
+          <p className="mt-2 text-sm text-gray-600">
             {readiness.score >= 80
               ? "You're well prepared. Keep things up to date."
               : readiness.score < 80
@@ -2302,8 +2507,8 @@ function ReadinessSection({
             percentage={readiness.score}
             loading={false}
           />
-          <div className="mt-2 text-center">
-            <p className="text-xs font-medium text-slate-200">
+          <div className="mt-3 text-center">
+            <p className="text-sm font-medium text-gray-900">
               {readiness.bucketLabel}
             </p>
           </div>
@@ -2311,11 +2516,11 @@ function ReadinessSection({
       </div>
       
       {/* Action Buttons */}
-      <div className="mt-4 pt-4 border-t border-slate-800 space-y-2">
+      <div className="mt-6 pt-6 border-t border-gray-200 space-y-2">
         {onShowImprovements && readiness.score < 100 && (
           <button
             onClick={onShowImprovements}
-            className="w-full rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 transition-colors flex items-center justify-center gap-2"
+            className="w-full rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors flex items-center justify-center gap-2"
           >
             <ArrowRight className="w-4 h-4" />
             View Actions to Improve Score
@@ -2328,8 +2533,8 @@ function ReadinessSection({
               disabled={!reviewStatus.isReviewDue}
               className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                 reviewStatus.isReviewDue
-                  ? "bg-slate-700 text-white hover:bg-slate-600"
-                  : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                  ? "bg-brand-600 text-white hover:bg-brand-700"
+                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
               title={reviewStatus.isReviewDue ? "Review your vault" : "Review will be available once the configured period has passed"}
             >
@@ -2339,7 +2544,7 @@ function ReadinessSection({
             {onReminderSettingsClick && (
               <button
                 onClick={onReminderSettingsClick}
-                className="rounded-md bg-slate-800 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors flex items-center justify-center"
+                className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center"
                 title="Review Reminder Settings"
               >
                 <Bell className="w-4 h-4" />
@@ -2348,7 +2553,7 @@ function ReadinessSection({
           </div>
         )}
         {reviewStatus?.isOwner && reviewStatus.lastReviewedAt && (
-          <p className="text-xs text-slate-400 text-center mt-2">
+          <p className="text-xs text-gray-500 text-center mt-2">
             Last reviewed: {new Date(reviewStatus.lastReviewedAt).toLocaleDateString()}
           </p>
         )}
@@ -2366,20 +2571,20 @@ function ReadinessRing({
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(percentage || 0)));
   const display = loading ? 0 : clamped;
-  const gradient = `conic-gradient(var(--brand-500) ${display * 3.6}deg, rgba(148, 163, 184, 0.3) 0deg)`;
+  const gradient = `conic-gradient(#0061ff ${display * 3.6}deg, rgba(229, 231, 235, 0.5) 0deg)`;
 
   return (
     <div
-      className="relative flex h-28 w-28 items-center justify-center rounded-full bg-slate-900"
+      className="relative flex h-28 w-28 items-center justify-center rounded-full bg-white"
       style={{
         backgroundImage: gradient,
       }}
     >
-      <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-slate-950 border border-slate-800">
-        <span className="text-xl font-semibold text-slate-50">
+      <div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-white border-2 border-gray-200">
+        <span className="text-xl font-semibold text-gray-900">
           {display}
         </span>
-        <span className="text-[10px] uppercase tracking-wide text-slate-400">
+        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium">
           Ready
         </span>
       </div>

@@ -216,11 +216,10 @@ export default function NomineeVaultPage() {
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
-                    <span>
-                      {new Date(item.createdAt).toLocaleDateString()}
-                    </span>
-                    {item.tags && item.tags.length > 0 && (
-                      <span>• {item.tags.join(", ")}</span>
+                    {item.updatedAt ? (
+                      <span>Updated: {new Date(item.updatedAt).toLocaleDateString()}</span>
+                    ) : (
+                      <span>Updated: {new Date(item.createdAt).toLocaleDateString()}</span>
                     )}
                   </div>
                 </div>

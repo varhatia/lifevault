@@ -55,6 +55,9 @@ model User {
   recoveryKeyGeneratedAt        DateTime?              @map("recovery_key_generated_at") @db.Timestamptz(6)
   passwordResetToken            String?                @map("password_reset_token") @db.VarChar(255)
   passwordResetTokenExpires     DateTime?              @map("password_reset_token_expires") @db.Timestamptz(6)
+  subscriptionPlan             String                 @default("free") @map("subscription_plan") @db.VarChar(20) // "free" | "plus"
+  subscriptionStatus            String?                @map("subscription_status") @db.VarChar(20) // "active" | "cancelled" | "expired"
+  subscriptionExpiresAt        DateTime?              @map("subscription_expires_at") @db.Timestamptz(6)
   familyMemberships             FamilyMember[]
   myVaultMemberships            MyVaultMember[]
   familyVaultItemsCreated       FamilyVaultItem[]      @relation("FamilyVaultItemCreator")

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getUserFromRequest } from '@/lib/api/auth';
+import { canCreateVault, SubscriptionPlan } from '@/lib/plan-limits';
 
 /**
  * @route   GET /api/vaults/my
@@ -90,6 +91,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Vault name is required' },
         { status: 400 }
+      );
+    }
+
+    // Check plan limits
+    const plan = ((user as any).subscriptionPlan || "free") as SubscriptionPlan;
+    const currentVaultCount = await prisma.myVault.count({
+      where: { ownerId: userId },
+    });
+
+    if (!canCreateVault(plan, currentVaultCount)) {
+      return NextResponse.json(
+        {
+          error: 'Vault limit reached',
+          limitReached: true,
+          limitType: 'vaults',
+          currentCount: currentVaultCount,
+          maxAllowed: plan === "free" ? 1 : Infinity,
+          message: 'You have reached the maximum number of vaults for your plan. Please upgrade to LifeVault Plus to create more vaults.',
+        },
+        { status: 403 }
       );
     }
     

@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import { usePlanUsage } from "@/hooks/usePlanUsage";
+import UpgradeModal from "@/components/UpgradeModal";
+import { Sparkles, Info } from "lucide-react";
 
 type AccountData = {
   profile: {
@@ -97,9 +100,12 @@ type AccountData = {
 export default function MyAccountPage() {
   const { user, loading: authLoading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { plan, usage } = usePlanUsage();
   const [accountData, setAccountData] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const [trustedDevices, setTrustedDevices] = useState<Array<{
     id: string;
     name: string;
@@ -266,8 +272,8 @@ export default function MyAccountPage() {
   if (authLoading || loading) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-          <p className="text-sm text-slate-400">Loading account information...</p>
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+          <p className="text-sm text-gray-600">Loading account information...</p>
         </div>
       </div>
     );
@@ -276,13 +282,13 @@ export default function MyAccountPage() {
   if (error || !accountData) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-red-500/50 bg-red-500/5 p-6">
-          <p className="text-sm text-red-400">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+          <p className="text-sm text-red-600">
             {error || "Failed to load account information"}
           </p>
           <button
             onClick={loadAccountData}
-            className="mt-4 rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            className="mt-4 rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
           >
             Retry
           </button>
@@ -293,64 +299,128 @@ export default function MyAccountPage() {
 
   return (
     <div className="space-y-6">
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="storage"
+        currentStorageMB={usage.storageUsedMB}
+        maxAllowed={plan === "free" ? 5 : Infinity}
+        message="Upgrade to LifeVault Plus for unlimited storage and advanced features."
+      />
+
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">My Account</h1>
-        <p className="mt-1 text-xs text-slate-300">
-          Review your account details, security settings, and activity.
-        </p>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900">My Account</h1>
+              {/* Tier Badge */}
+              <div className="relative">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                    plan === "plus"
+                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                      : "bg-gray-100 text-gray-700 border border-gray-300"
+                  }`}
+                  onMouseEnter={() => plan === "free" && setShowTooltip(true)}
+                  onMouseLeave={() => setShowTooltip(false)}
+                >
+                  {plan === "plus" ? (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      Plus
+                    </>
+                  ) : (
+                    "Free"
+                  )}
+                </span>
+                {/* Tooltip for Free plan */}
+                {plan === "free" && showTooltip && (
+                  <div className="absolute left-0 top-full mt-2 w-64 z-50 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-semibold text-gray-900 mb-1">Upgrade to Plus</p>
+                        <p className="text-xs text-gray-600">
+                          Get unlimited storage, multiple nominees, unlimited members, and priority support.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="absolute -top-1 left-4 w-2 h-2 rotate-45 bg-white border-l border-t border-gray-200"></div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="mt-1 text-sm text-gray-600">
+              Review your account details, security settings, and activity.
+            </p>
+          </div>
+          {/* Upgrade CTA Button */}
+          {plan === "free" && (
+            <button
+              onClick={() => {
+                router.push("/#pricing");
+              }}
+              className="ml-4 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Upgrade to Plus
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Profile Section */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <User className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <User className="w-5 h-5 text-gray-600" />
           Profile Information
         </h2>
         <div className="grid gap-4 md:grid-cols-2">
           <div className="flex items-start gap-3">
-            <Mail className="w-5 h-5 text-slate-400 mt-0.5" />
+            <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
             <div>
-              <p className="text-xs text-slate-400 mb-1">Email Address</p>
-              <p className="text-sm font-medium text-white">{accountData.profile.email}</p>
+              <p className="text-xs text-gray-500 mb-1">Email Address</p>
+              <p className="text-sm font-medium text-gray-900">{accountData.profile.email}</p>
               {accountData.security.emailVerified ? (
                 <div className="flex items-center gap-1 mt-1">
-                  <CheckCircle className="w-3 h-3 text-green-400" />
-                  <span className="text-[10px] text-green-400">Verified</span>
+                  <CheckCircle className="w-3 h-3 text-green-600" />
+                  <span className="text-[10px] text-green-600 font-medium">Verified</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1 mt-1">
-                  <XCircle className="w-3 h-3 text-amber-400" />
-                  <span className="text-[10px] text-amber-400">Not verified</span>
+                  <XCircle className="w-3 h-3 text-amber-600" />
+                  <span className="text-[10px] text-amber-600 font-medium">Not verified</span>
                 </div>
               )}
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <Phone className="w-5 h-5 text-slate-400 mt-0.5" />
+            <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
             <div>
-              <p className="text-xs text-slate-400 mb-1">Phone Number</p>
-              <p className="text-sm font-medium text-white">
+              <p className="text-xs text-gray-500 mb-1">Phone Number</p>
+              <p className="text-sm font-medium text-gray-900">
                 {accountData.profile.phone || "Not provided"}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <User className="w-5 h-5 text-slate-400 mt-0.5" />
+            <User className="w-5 h-5 text-gray-400 mt-0.5" />
             <div>
-              <p className="text-xs text-slate-400 mb-1">Full Name</p>
-              <p className="text-sm font-medium text-white">
+              <p className="text-xs text-gray-500 mb-1">Full Name</p>
+              <p className="text-sm font-medium text-gray-900">
                 {accountData.profile.fullName || "Not provided"}
               </p>
             </div>
           </div>
 
           <div className="flex items-start gap-3">
-            <Calendar className="w-5 h-5 text-slate-400 mt-0.5" />
+            <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
             <div>
-              <p className="text-xs text-slate-400 mb-1">Account Created</p>
-              <p className="text-sm font-medium text-white">
+              <p className="text-xs text-gray-500 mb-1">Account Created</p>
+              <p className="text-sm font-medium text-gray-900">
                 {formatDate(accountData.profile.accountCreatedAt)}
               </p>
             </div>
@@ -359,56 +429,56 @@ export default function MyAccountPage() {
       </section>
 
       {/* Emergency Contact Section */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <User className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <User className="w-5 h-5 text-gray-600" />
           Emergency Contact
         </h2>
         {accountData.emergencyContact ? (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex items-start gap-3">
-              <User className="w-5 h-5 text-slate-400 mt-0.5" />
+              <User className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
-                <p className="text-xs text-slate-400 mb-1">Name</p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs text-gray-500 mb-1">Name</p>
+                <p className="text-sm font-medium text-gray-900">
                   {accountData.emergencyContact.name}
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Mail className="w-5 h-5 text-slate-400 mt-0.5" />
+              <Mail className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
-                <p className="text-xs text-slate-400 mb-1">Email</p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs text-gray-500 mb-1">Email</p>
+                <p className="text-sm font-medium text-gray-900">
                   {accountData.emergencyContact.email || "Not provided"}
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Phone className="w-5 h-5 text-slate-400 mt-0.5" />
+              <Phone className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
-                <p className="text-xs text-slate-400 mb-1">Phone</p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs text-gray-500 mb-1">Phone</p>
+                <p className="text-sm font-medium text-gray-900">
                   {accountData.emergencyContact.phone || "Not provided"}
                 </p>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Clock className="w-5 h-5 text-slate-400 mt-0.5" />
+              <Clock className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
-                <p className="text-xs text-slate-400 mb-1">Access Trigger</p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs text-gray-500 mb-1">Access Trigger</p>
+                <p className="text-sm font-medium text-gray-900">
                   After {accountData.emergencyContact.accessTriggerDays} days of inactivity
                 </p>
               </div>
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm text-gray-600">
               No emergency contact configured. Add a nominee in your vault to set up emergency access.
             </p>
           </div>
@@ -416,9 +486,9 @@ export default function MyAccountPage() {
       </section>
 
       {/* Security Section */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Shield className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Shield className="w-5 h-5 text-gray-600" />
           Security & Zero-Knowledge Posture
         </h2>
         
@@ -453,30 +523,30 @@ export default function MyAccountPage() {
           </div>
 
           {/* Zero-Knowledge Architecture Details */}
-          <div className="mt-6 pt-4 border-t border-slate-800">
-            <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-              <Key className="w-4 h-4" />
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Key className="w-4 h-4 text-gray-600" />
               Zero-Knowledge Architecture
             </h3>
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-                <p className="text-xs text-slate-400 mb-1">Server Key Part B</p>
-                <p className="text-sm font-medium text-white">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 mb-1">Server Key Part B</p>
+                <p className="text-sm font-medium text-gray-900">
                   Version {accountData.security.serverKeyPartB.version}
                 </p>
                 {accountData.security.serverKeyPartB.encryptedAt && (
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-gray-500 mt-1">
                     Encrypted {formatRelativeTime(accountData.security.serverKeyPartB.encryptedAt)}
                   </p>
                 )}
               </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-3">
-                <p className="text-xs text-slate-400 mb-1">Vault Setup</p>
-                <p className="text-sm font-medium text-white">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 mb-1">Vault Setup</p>
+                <p className="text-sm font-medium text-gray-900">
                   {accountData.security.vaultSetup.completed ? "Completed" : "Incomplete"}
                 </p>
                 {accountData.security.vaultSetup.completedAt && (
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-gray-500 mt-1">
                     Completed {formatRelativeTime(accountData.security.vaultSetup.completedAt)}
                   </p>
                 )}
@@ -485,18 +555,18 @@ export default function MyAccountPage() {
           </div>
 
           {/* Last Login */}
-          <div className="mt-4 pt-4 border-t border-slate-800">
+          <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-slate-400" />
+              <Clock className="w-5 h-5 text-gray-400" />
               <div>
-                <p className="text-xs text-slate-400 mb-1">Last Sign-In</p>
-                <p className="text-sm font-medium text-white">
+                <p className="text-xs text-gray-500 mb-1">Last Sign-In</p>
+                <p className="text-sm font-medium text-gray-900">
                   {accountData.security.lastLogin
                     ? `${formatRelativeTime(accountData.security.lastLogin)} (${accountData.securityIndicators.daysSinceLastLogin} days ago)`
                     : "Never"}
                 </p>
                 {accountData.security.lastLogin && (
-                  <p className="text-[10px] text-slate-500 mt-1">
+                  <p className="text-[10px] text-gray-500 mt-1">
                     {formatDate(accountData.security.lastLogin)}
                   </p>
                 )}
@@ -507,22 +577,22 @@ export default function MyAccountPage() {
       </section>
 
       {/* Trusted Devices */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Shield className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Shield className="w-5 h-5 text-gray-600" />
           Trusted Devices
         </h2>
         {devicesLoading ? (
-          <p className="text-sm text-slate-400">Loading devices...</p>
+          <p className="text-sm text-gray-600">Loading devices...</p>
         ) : trustedDevices.length > 0 ? (
           <div className="space-y-3">
             {trustedDevices.map((device) => (
               <div
                 key={device.id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3"
               >
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="text-slate-400">
+                  <div className="text-gray-400">
                     {getDeviceIcon(
                       device.userAgent?.includes("Mobile") || device.userAgent?.includes("Android") || device.userAgent?.includes("iPhone")
                         ? "Mobile"
@@ -532,15 +602,15 @@ export default function MyAccountPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-white">{device.name}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm font-medium text-gray-900">{device.name}</p>
+                    <p className="text-xs text-gray-600">
                       Last used {formatRelativeTime(device.lastUsedAt)} • {device.ipAddress || "IP not recorded"}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => revokeDevice(device.id)}
-                  className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Revoke device"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -549,8 +619,8 @@ export default function MyAccountPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm text-gray-600">
               No trusted devices. Devices will be added automatically after authorization.
             </p>
           </div>
@@ -558,85 +628,85 @@ export default function MyAccountPage() {
       </section>
 
       {/* Vault Security Section */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Key className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Key className="w-5 h-5 text-gray-600" />
           Vault Security
         </h2>
-        <p className="text-xs text-slate-400 mb-4">
+        <p className="text-xs text-gray-600 mb-4">
           Track master password and recovery key status for each vault. Rotate passwords and keys every 90 days for optimal security.
         </p>
         {vaultsSecurityLoading ? (
-          <p className="text-sm text-slate-400">Loading vault security information...</p>
+          <p className="text-sm text-gray-600">Loading vault security information...</p>
         ) : vaultsSecurity.length > 0 ? (
           <div className="space-y-4">
             {vaultsSecurity.map((vault) => (
               <div
                 key={vault.vaultId}
-                className="rounded-lg border border-slate-800 bg-slate-900/40 p-4"
+                className="rounded-lg border border-gray-200 bg-gray-50 p-4"
               >
-                <h3 className="text-sm font-semibold text-white mb-3">{vault.vaultName}</h3>
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">{vault.vaultName}</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="flex items-start gap-3">
                     {vault.masterPassword.needsRotation ? (
-                      <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     ) : vault.masterPassword.hasVerifier ? (
-                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+                      <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-white mb-1">Master Password</p>
+                      <p className="text-xs font-medium text-gray-900 mb-1">Master Password</p>
                       {vault.masterPassword.hasVerifier ? (
                         <>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-gray-600">
                             {vault.masterPassword.lastChanged
                               ? `Changed ${formatRelativeTime(vault.masterPassword.lastChanged)}`
                               : "Set up"}
                           </p>
                           {vault.masterPassword.daysSinceChange !== null && (
-                            <p className="text-[10px] text-slate-500 mt-1">
+                            <p className="text-[10px] text-gray-500 mt-1">
                               {vault.masterPassword.daysSinceChange} days ago
                               {vault.masterPassword.needsRotation && (
-                                <span className="text-amber-400 ml-1">• Needs rotation</span>
+                                <span className="text-amber-600 ml-1 font-medium">• Needs rotation</span>
                               )}
                             </p>
                           )}
                         </>
                       ) : (
-                        <p className="text-[10px] text-slate-400">Not set up</p>
+                        <p className="text-[10px] text-gray-600">Not set up</p>
                       )}
                     </div>
                   </div>
 
                   <div className="flex items-start gap-3">
                     {vault.recoveryKey.needsRotation ? (
-                      <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                     ) : vault.recoveryKey.hasRecoveryKey ? (
-                      <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     ) : (
-                      <XCircle className="w-5 h-5 text-slate-500 flex-shrink-0 mt-0.5" />
+                      <XCircle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                     )}
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-white mb-1">Recovery Key</p>
+                      <p className="text-xs font-medium text-gray-900 mb-1">Recovery Key</p>
                       {vault.recoveryKey.hasRecoveryKey ? (
                         <>
-                          <p className="text-[10px] text-slate-400">
+                          <p className="text-[10px] text-gray-600">
                             {vault.recoveryKey.generatedAt
                               ? `Generated ${formatRelativeTime(vault.recoveryKey.generatedAt)}`
                               : "Generated"}
                           </p>
                           {vault.recoveryKey.daysSinceGeneration !== null && (
-                            <p className="text-[10px] text-slate-500 mt-1">
+                            <p className="text-[10px] text-gray-500 mt-1">
                               {vault.recoveryKey.daysSinceGeneration} days ago
                               {vault.recoveryKey.needsRotation && (
-                                <span className="text-amber-400 ml-1">• Needs rotation</span>
+                                <span className="text-amber-600 ml-1 font-medium">• Needs rotation</span>
                               )}
                             </p>
                           )}
                         </>
                       ) : (
-                        <p className="text-[10px] text-slate-400">Not generated</p>
+                        <p className="text-[10px] text-gray-600">Not generated</p>
                       )}
                     </div>
                   </div>
@@ -645,8 +715,8 @@ export default function MyAccountPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <p className="text-sm text-slate-400">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm text-gray-600">
               No vaults found. Create a vault to start tracking vault-level security.
             </p>
           </div>
@@ -654,9 +724,9 @@ export default function MyAccountPage() {
       </section>
 
       {/* Recent Sign-Ins */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-          <Monitor className="w-5 h-5" />
+      <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Monitor className="w-5 h-5 text-gray-600" />
           Recent Sign-Ins
         </h2>
         {accountData.recentLogins.length > 0 ? (
@@ -664,26 +734,26 @@ export default function MyAccountPage() {
             {accountData.recentLogins.map((login) => (
               <div
                 key={login.id}
-                className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/40 p-3"
+                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 p-3"
               >
                 <div className="flex items-center gap-3">
-                  <div className="text-slate-400">
+                  <div className="text-gray-400">
                     {getDeviceIcon(login.device)}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-white">
+                    <p className="text-sm font-medium text-gray-900">
                       {login.os} • {login.browser}
                     </p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-gray-600">
                       {login.device} • {login.ipAddress || "IP not recorded"}
                     </p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-gray-600">
                     {formatRelativeTime(login.timestamp)}
                   </p>
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-gray-500">
                     {formatDate(login.timestamp)}
                   </p>
                 </div>
@@ -691,8 +761,8 @@ export default function MyAccountPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-            <p className="text-sm text-slate-400">No recent sign-ins recorded.</p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm text-gray-600">No recent sign-ins recorded.</p>
           </div>
         )}
       </section>
@@ -710,15 +780,15 @@ function SecurityIndicator({
   detail: string;
 }) {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/40 p-3">
+    <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
       {value ? (
-        <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
       ) : (
-        <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
       )}
       <div>
-        <p className="text-xs font-medium text-white mb-1">{label}</p>
-        <p className="text-[10px] text-slate-400">{detail}</p>
+        <p className="text-xs font-medium text-gray-900 mb-1">{label}</p>
+        <p className="text-[10px] text-gray-600">{detail}</p>
       </div>
     </div>
   );

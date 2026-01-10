@@ -45,13 +45,7 @@ export async function PUT(
         return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
       }
       
-      // Only admin and editor can update items
-      if (!['admin', 'editor'].includes(membership.role)) {
-        return NextResponse.json(
-          { error: 'You do not have permission to update items in this vault' },
-          { status: 403 }
-        );
-      }
+      // All members can update items (role system removed)
     }
 
     // Verify item belongs to this vault
@@ -212,13 +206,7 @@ export async function DELETE(
         return NextResponse.json({ error: 'Vault not found or unauthorized' }, { status: 404 });
       }
       
-      // Only admin and editor can delete items
-      if (!['admin', 'editor'].includes(membership.role)) {
-        return NextResponse.json(
-          { error: 'You do not have permission to delete items from this vault' },
-          { status: 403 }
-        );
-      }
+      // All members can delete items (role system removed)
     }
 
     // Find item to get S3 key and metadata for logging

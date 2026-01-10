@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { uploadEncryptedFile, generateS3Key } from '@/lib/api/s3';
 import { randomUUID } from 'crypto';
 import { getUserFromRequest } from '@/lib/api/auth';
+import { canUploadFile, SubscriptionPlan, bytesToMB } from '@/lib/plan-limits';
 
 /**
  * @route   GET /api/vaults/my/[vaultId]/items
@@ -189,13 +190,8 @@ export async function POST(
         );
       }
       
-      // Only admin and editor can create items
-      if (!['admin', 'editor'].includes(membership.role)) {
-        return NextResponse.json(
-          { error: 'You do not have permission to add items to this vault' },
-          { status: 403 }
-        );
-      }
+      // All members can create items (role system removed)
+      // Members have full access except adding members/nominees
     }
     
     let body;
@@ -220,6 +216,60 @@ export async function POST(
     
     // File is optional - only process if provided
     const hasFile = encryptedBlob && iv;
+    
+    // Check storage limits if file is provided
+    if (hasFile) {
+      const plan = ((user as any).subscriptionPlan || "free") as SubscriptionPlan;
+      
+      // Calculate current storage usage
+      const myVaultIds = await prisma.myVault.findMany({
+        where: { ownerId: userId },
+        select: { id: true },
+      });
+
+      const myVaultItems = await prisma.vaultItem.findMany({
+        where: {
+          myVaultId: { in: myVaultIds.map(v => v.id) },
+          s3Key: { not: null },
+        },
+        select: { s3Key: true },
+      });
+
+      // Calculate encrypted blob size (base64 encoded)
+      // Base64 size = (original_size * 4/3) + encryption overhead
+      // For simplicity, we'll use the base64 string length to estimate
+      const encryptedBlobSizeBytes = Buffer.from(encryptedBlob, 'base64').length;
+      const fileSizeMB = bytesToMB(encryptedBlobSizeBytes);
+
+      // Get current storage usage from usage API logic
+      // For now, we'll fetch current usage
+      const usageRes = await fetch(`${req.nextUrl.origin}/api/user/usage`, {
+        headers: {
+          'Cookie': req.headers.get('cookie') || '',
+        },
+      });
+
+      let currentStorageMB = 0;
+      if (usageRes.ok) {
+        const usageData = await usageRes.json();
+        currentStorageMB = usageData.usage?.storageUsedMB || 0;
+      }
+
+      if (!canUploadFile(plan, currentStorageMB, fileSizeMB)) {
+        return NextResponse.json(
+          {
+            error: 'Storage limit reached',
+            limitReached: true,
+            limitType: 'storage',
+            currentStorageMB,
+            fileSizeMB,
+            maxAllowedMB: plan === "free" ? 5 : Infinity,
+            message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LifeVault Plus for unlimited storage.`,
+          },
+          { status: 403 }
+        );
+      }
+    }
     
     // Generate unique item ID
     const itemId = randomUUID();
