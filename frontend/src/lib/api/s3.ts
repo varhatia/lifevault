@@ -14,7 +14,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'lifevault-vaults';
+export const BUCKET_NAME = process.env.AWS_S3_BUCKET || 'lifevault-vaults';
 
 // Determine AWS region with detailed logging for debugging
 const AWS_REGION_ENV = process.env.AWS_REGION;
