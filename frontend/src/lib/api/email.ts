@@ -1,13 +1,13 @@
 /**
- * Email Service for LifeVault
+ * Email Service for LivPeace
  * Supports MailHog for development and production email services (SendGrid, AWS SES, etc.)
  */
 
 import nodemailer from 'nodemailer';
 
 // Email configuration
-const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@lifevault.app';
-const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'LifeVault';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@livpeace.com';
+const EMAIL_FROM_NAME = process.env.EMAIL_FROM_NAME || 'LivPeace';
 
 // Determine email service based on environment
 // Priority: USE_MAILHOG env var > VERCEL_ENV check > NODE_ENV check
@@ -98,30 +98,30 @@ export async function sendVerificationEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: email,
-    subject: 'Verify your LifeVault email address',
+    subject: 'Verify your LivPeace email address',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Verify your email - LifeVault</title>
+          <title>Verify your email - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Verify your email address</h2>
             <p style="color: #4b5563;">Hi ${displayName},</p>
-            <p style="color: #4b5563;">Thank you for signing up for LifeVault! Please verify your email address by clicking the button below:</p>
+            <p style="color: #4b5563;">Thank you for signing up for LivPeace! Please verify your email address by clicking the button below:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${verificationUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">Verify Email Address</a>
             </div>
             <p style="color: #4b5563; font-size: 14px;">Or copy and paste this link into your browser:</p>
             <p style="color: #667eea; font-size: 12px; word-break: break-all;">${verificationUrl}</p>
             <p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              This verification link will expire in 30 minutes. If you didn't create a LifeVault account, you can safely ignore this email.
+              This verification link will expire in 30 minutes. If you didn't create a LivPeace account, you can safely ignore this email.
             </p>
           </div>
         </body>
@@ -130,11 +130,11 @@ export async function sendVerificationEmail(
     text: `
       Hi ${displayName},
       
-      Thank you for signing up for LifeVault! Please verify your email address by visiting this link:
+      Thank you for signing up for LivPeace! Please verify your email address by visiting this link:
       
       ${verificationUrl}
       
-      This verification link will expire in 30 minutes. If you didn't create a LifeVault account, you can safely ignore this email.
+      This verification link will expire in 30 minutes. If you didn't create a LivPeace account, you can safely ignore this email.
     `,
   };
 
@@ -166,18 +166,18 @@ export async function sendPasswordResetEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: email,
-    subject: 'Reset your LifeVault password',
+    subject: 'Reset your LivPeace password',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset password - LifeVault</title>
+          <title>Reset password - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Reset your password</h2>
@@ -236,24 +236,24 @@ export async function sendNomineeNotificationEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: nomineeEmail,
-    subject: 'You have been designated as a Nominee for LifeVault',
+    subject: 'You have been designated as a Nominee for LivPeace',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Nominee Designation - LifeVault</title>
+          <title>Nominee Designation - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">You've been designated as a Nominee</h2>
             <p style="color: #4b5563;">Hi ${nomineeName},</p>
             <p style="color: #4b5563;">
-              <strong>${vaultOwnerName}</strong> has designated you as a nominee for their ${vaultType === 'family_vault' ? `Family Vault${vaultName ? `: "${vaultName}"` : ''}` : 'Personal Vault'} on LifeVault. 
+              <strong>${vaultOwnerName}</strong> has designated you as a nominee for their ${vaultType === 'family_vault' ? `Family Vault${vaultName ? `: "${vaultName}"` : ''}` : 'Personal Vault'} on LivPeace. 
               This means you may be granted read-only access to their encrypted vault under specific circumstances.
             </p>
             ${vaultType === 'family_vault' && vaultName ? `
@@ -303,7 +303,7 @@ export async function sendNomineeNotificationEmail(
     text: `
       Hi ${nomineeName},
       
-      ${vaultOwnerName} has designated you as a nominee for their LifeVault account. 
+      ${vaultOwnerName} has designated you as a nominee for their LivPeace account. 
       This means you may be granted read-only access to their encrypted vault under specific circumstances.
       
       What this means:
@@ -370,17 +370,17 @@ export async function sendAccessRequestEmail(
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Access Request - LifeVault</title>
+          <title>Access Request - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Nominee Access Request</h2>
             <p style="color: #4b5563;">Hi ${displayName},</p>
             <p style="color: #4b5563;">
-              <strong>${nomineeName}</strong> has requested read-only access to your LifeVault.
+              <strong>${nomineeName}</strong> has requested read-only access to your LivPeace.
             </p>
             <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
               <p style="color: #1e40af; margin: 0; font-size: 14px;">
@@ -407,7 +407,7 @@ export async function sendAccessRequestEmail(
     text: `
       Hi ${displayName},
       
-      ${nomineeName} has requested read-only access to your LifeVault.
+      ${nomineeName} has requested read-only access to your LivPeace.
       
       Request Details:
       - Nominee: ${nomineeName}
@@ -452,18 +452,18 @@ export async function sendAccessDecisionEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: nomineeEmail,
-    subject: approved ? 'Access Request Approved - LifeVault' : 'Access Request Rejected - LifeVault',
+    subject: approved ? 'Access Request Approved - LivPeace' : 'Access Request Rejected - LivPeace',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Access Decision - LifeVault</title>
+          <title>Access Decision - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Access Request ${approved ? 'Approved' : 'Rejected'}</h2>
@@ -472,7 +472,7 @@ export async function sendAccessDecisionEmail(
             <div style="background: #d1fae5; border-left: 4px solid #10b981; padding: 15px; margin: 20px 0;">
               <p style="color: #065f46; margin: 0; font-size: 14px;">
                 <strong>✓ Approved</strong><br>
-                ${userName} has approved your request for read-only access to their LifeVault.
+                ${userName} has approved your request for read-only access to their LivPeace.
               </p>
             </div>
             <p style="color: #4b5563;">
@@ -496,7 +496,7 @@ export async function sendAccessDecisionEmail(
             <div style="background: #fee2e2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0;">
               <p style="color: #991b1b; margin: 0; font-size: 14px;">
                 <strong>✗ Rejected</strong><br>
-                ${userName} has rejected your request for access to their LifeVault.
+                ${userName} has rejected your request for access to their LivPeace.
                 ${rejectionReason ? `<br><br>Reason: ${rejectionReason}` : ''}
               </p>
             </div>
@@ -547,24 +547,24 @@ export async function sendRecoveryKeyEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: userEmail,
-    subject: 'Your LifeVault Recovery Key - Save This Securely',
+    subject: 'Your LivPeace Recovery Key - Save This Securely',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Recovery Key - LifeVault</title>
+          <title>Recovery Key - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Your Recovery Key</h2>
             <p style="color: #4b5563;">Hi ${displayName},</p>
             <p style="color: #4b5563;">
-              Your LifeVault has been set up successfully! Below is your <strong>Recovery Key</strong> that you can use to unlock your vault if you forget your master password.
+              Your LivPeace has been set up successfully! Below is your <strong>Recovery Key</strong> that you can use to unlock your vault if you forget your master password.
             </p>
             
             <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
@@ -601,7 +601,7 @@ export async function sendRecoveryKeyEmail(
             </div>
 
             <p style="color: #6b7280; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-              <strong>Security Note:</strong> This recovery key was generated during vault setup. If you did not set up a LifeVault account, please contact support immediately.
+              <strong>Security Note:</strong> This recovery key was generated during vault setup. If you did not set up a LivPeace account, please contact support immediately.
             </p>
           </div>
         </body>
@@ -610,7 +610,7 @@ export async function sendRecoveryKeyEmail(
     text: `
       Hi ${displayName},
       
-      Your LifeVault has been set up successfully! Below is your Recovery Key that you can use to unlock your vault if you forget your master password.
+      Your LivPeace has been set up successfully! Below is your Recovery Key that you can use to unlock your vault if you forget your master password.
       
       ⚠️ Important: Save This Recovery Key Securely
       - Store it in a password manager or secure location
@@ -625,7 +625,7 @@ export async function sendRecoveryKeyEmail(
       
       Your encrypted vault is ready. Access it at: ${accessUrl}
       
-      Security Note: This recovery key was generated during vault setup. If you did not set up a LifeVault account, please contact support immediately.
+      Security Note: This recovery key was generated during vault setup. If you did not set up a LivPeace account, please contact support immediately.
     `,
   };
 
@@ -658,24 +658,24 @@ export async function sendInactivityReminderEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: userEmail,
-    subject: `Reminder: You haven't logged in to LifeVault in ${daysInactive} days`,
+    subject: `Reminder: You haven't logged in to LivPeace in ${daysInactive} days`,
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Inactivity Reminder - LifeVault</title>
+          <title>Inactivity Reminder - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Inactivity Reminder</h2>
             <p style="color: #4b5563;">Hi ${displayName},</p>
             <p style="color: #4b5563;">
-              We noticed you haven't logged in to your LifeVault account in <strong>${daysInactive} days</strong>.
+              We noticed you haven't logged in to your LivPeace account in <strong>${daysInactive} days</strong>.
             </p>
             ${reminderNumber === 3 ? `
             <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
@@ -704,7 +704,7 @@ export async function sendInactivityReminderEmail(
     text: `
       Hi ${displayName},
       
-      We noticed you haven't logged in to your LifeVault account in ${daysInactive} days.
+      We noticed you haven't logged in to your LivPeace account in ${daysInactive} days.
       ${reminderNumber === 3 ? 'This is your final reminder. If you don\'t log in soon, your nominees may be notified.' : `This is reminder #${reminderNumber} of 3.`}
       
       Log in now: ${loginUrl}
@@ -746,11 +746,11 @@ export async function sendNomineeInactivityNotification(
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Nominee Notification - LifeVault</title>
+          <title>Nominee Notification - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Nominee Access Notification</h2>
@@ -758,7 +758,7 @@ export async function sendNomineeInactivityNotification(
             <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
               <p style="color: #92400e; margin: 0; font-size: 14px;">
                 <strong>⚠️ Important Notice</strong><br>
-                ${userName} has been inactive for <strong>${daysInactive} days</strong>. As a designated nominee, you may now be granted read-only access to their LifeVault.
+                ${userName} has been inactive for <strong>${daysInactive} days</strong>. As a designated nominee, you may now be granted read-only access to their LivPeace.
               </p>
             </div>
             <p style="color: #4b5563;">
@@ -777,7 +777,7 @@ export async function sendNomineeInactivityNotification(
     text: `
       Hi ${nomineeName},
       
-      ${userName} has been inactive for ${daysInactive} days. As a designated nominee, you may now be granted read-only access to their LifeVault.
+      ${userName} has been inactive for ${daysInactive} days. As a designated nominee, you may now be granted read-only access to their LivPeace.
       
       Access the vault: ${accessUrl}
       
@@ -814,24 +814,24 @@ export async function sendFamilyVaultInviteEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: toEmail,
-    subject: `You've been invited to join ${vaultName} on LifeVault`,
+    subject: `You've been invited to join ${vaultName} on LivPeace`,
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Family Vault Invitation - LifeVault</title>
+          <title>Family Vault Invitation - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">You've been invited to a Family Vault</h2>
             <p style="color: #4b5563;">Hi there,</p>
             <p style="color: #4b5563;">
-              <strong>${inviterName}</strong> has invited you to join the <strong>${vaultName}</strong> Family Vault on LifeVault.
+              <strong>${inviterName}</strong> has invited you to join the <strong>${vaultName}</strong> Family Vault on LivPeace.
             </p>
             <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
               <p style="color: #1e40af; margin: 0; font-size: 14px;">
@@ -854,7 +854,7 @@ export async function sendFamilyVaultInviteEmail(
     text: `
       Hi there,
       
-      ${inviterName} has invited you to join the ${vaultName} Family Vault on LifeVault.
+      ${inviterName} has invited you to join the ${vaultName} Family Vault on LivPeace.
       
       A Family Vault is a shared encrypted vault where family members can securely store and access important documents together.
       
@@ -893,24 +893,24 @@ export async function sendMyVaultInviteEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: toEmail,
-    subject: `You've been invited to join ${vaultName} on LifeVault`,
+    subject: `You've been invited to join ${vaultName} on LivPeace`,
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Vault Invitation - LifeVault</title>
+          <title>Vault Invitation - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">You've been invited to a Vault</h2>
             <p style="color: #4b5563;">Hi there,</p>
             <p style="color: #4b5563;">
-              <strong>${inviterName}</strong> has invited you to join the <strong>${vaultName}</strong> vault on LifeVault.
+              <strong>${inviterName}</strong> has invited you to join the <strong>${vaultName}</strong> vault on LivPeace.
             </p>
             <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0;">
               <p style="color: #1e40af; margin: 0; font-size: 14px;">
@@ -933,7 +933,7 @@ export async function sendMyVaultInviteEmail(
     text: `
       Hi there,
       
-      ${inviterName} has invited you to join the ${vaultName} vault on LifeVault.
+      ${inviterName} has invited you to join the ${vaultName} vault on LivPeace.
       
       A Vault is a shared encrypted vault where members can securely store and access important documents together.
       
@@ -981,18 +981,18 @@ export async function sendDeviceAuthorizationEmail(
   const mailOptions = {
     from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>`,
     to: userEmail,
-    subject: 'Authorize New Device - LifeVault',
+    subject: 'Authorize New Device - LivPeace',
     html: `
       <!DOCTYPE html>
       <html>
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Authorize New Device - LifeVault</title>
+          <title>Authorize New Device - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">Authorize New Device</h2>
@@ -1102,11 +1102,11 @@ export async function sendVaultSecurityRotationReminderEmail(
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Security Reminder - LifeVault</title>
+          <title>Security Reminder - LivPeace</title>
         </head>
         <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">LifeVault</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">LivPeace</h1>
           </div>
           <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1f2937; margin-top: 0;">🔒 Security Reminder: Rotate Your Vault Keys</h2>

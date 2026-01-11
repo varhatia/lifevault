@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
           limitType: 'vaults',
           currentCount: currentVaultCount,
           maxAllowed: plan === "free" ? 1 : Infinity,
-          message: 'You have reached the maximum number of vaults for your plan. Please upgrade to LifeVault Plus to create more vaults.',
+          message: 'You have reached the maximum number of vaults for your plan. Please upgrade to LivPeace Plus to create more vaults.',
         },
         { status: 403 }
       );
@@ -145,6 +145,8 @@ export async function POST(req: NextRequest) {
             null,
           userAgent: req.headers.get('user-agent') || null,
           metadata: {
+            severity: 'info',
+            outcome: 'success',
             name: vault.name,
           },
           createdAt: now,

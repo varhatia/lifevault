@@ -202,7 +202,7 @@ export async function POST(
               currentStorageMB,
               fileSizeMB,
               maxAllowedMB: plan === "free" ? 5 : Infinity,
-              message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LifeVault Plus for unlimited storage.`,
+              message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LivPeace Plus for unlimited storage.`,
             },
             { status: 403 }
           );

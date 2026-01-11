@@ -20,7 +20,7 @@ export default function RootLayout({
   // Handle navigation for unauthenticated users - prevent flickering
   const handleNav = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     // Only intercept for protected routes when not authenticated
-    const protectedRoutes = ["/my-vault", "/nominee", "/my-account", "/actions", "/activity"];
+    const protectedRoutes = ["/my-vault", "/nominee", "/my-account", "/activity"];
     if (!authLoading && !isAuthenticated && protectedRoutes.includes(href)) {
       e.preventDefault();
       router.push("/auth/login");
@@ -36,11 +36,11 @@ export default function RootLayout({
           <header className="flex items-center justify-between border-b border-gray-200 bg-white sticky top-0 z-50 px-6 py-3">
             <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
               <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-500 text-sm font-semibold text-white">
-                LV
+                LP
               </div>
               <div>
                 <div className="text-lg font-semibold tracking-tight text-gray-900">
-                  LifeVault
+                  LivPeace
                 </div>
               </div>
             </Link>
@@ -51,9 +51,6 @@ export default function RootLayout({
                   <>
                     <a href="/" onClick={(e) => handleNav(e, "/")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       Home
-                    </a>
-                    <a href="/actions" onClick={(e) => handleNav(e, "/actions")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-                      Review Mode
                     </a>
                     <a href="/my-vault" onClick={(e) => handleNav(e, "/my-vault")} className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                       My Vault

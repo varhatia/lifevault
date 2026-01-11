@@ -216,6 +216,7 @@ export async function POST(
     
     // File is optional - only process if provided
     const hasFile = encryptedBlob && iv;
+    let fileSizeMB: number | undefined;
     
     // Check storage limits if file is provided
     if (hasFile) {
@@ -239,7 +240,7 @@ export async function POST(
       // Base64 size = (original_size * 4/3) + encryption overhead
       // For simplicity, we'll use the base64 string length to estimate
       const encryptedBlobSizeBytes = Buffer.from(encryptedBlob, 'base64').length;
-      const fileSizeMB = bytesToMB(encryptedBlobSizeBytes);
+      fileSizeMB = bytesToMB(encryptedBlobSizeBytes);
 
       // Get current storage usage from usage API logic
       // For now, we'll fetch current usage
@@ -264,7 +265,7 @@ export async function POST(
             currentStorageMB,
             fileSizeMB,
             maxAllowedMB: plan === "free" ? 5 : Infinity,
-            message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LifeVault Plus for unlimited storage.`,
+            message: `File size (${fileSizeMB.toFixed(2)} MB) would exceed your storage limit. Free plan includes 5 MB storage. Please upgrade to LivPeace Plus for unlimited storage.`,
           },
           { status: 403 }
         );
@@ -314,30 +315,40 @@ export async function POST(
       },
     });
 
-    // Log item upload activity (zero-knowledge: reference ids and metadata only)
+    // Log item upload activity using enhanced audit system
     try {
-      // Cast prisma to any here to avoid type mismatch if generated types are stale
-      // Runtime model name is activityLog, matching ActivityLog in schema
-      await (prisma as any).activityLog.create({
-        data: {
-          userId,
-          vaultType: 'my_vault',
-          myVaultId: vaultId,
-          vaultItemId: vaultItem.id,
-          action: 'item_uploaded',
-          description: 'Item uploaded to My Vault',
-          ipAddress:
-            req.headers.get('x-forwarded-for') ||
-            req.headers.get('x-real-ip') ||
-            null,
-          userAgent: req.headers.get('user-agent') || null,
-          metadata: {
-            category,
-            hasFile: !!s3Key,
-          },
-          createdAt: now,
-        },
+      const { extractAuditContext, logDataModification, createAuditTimer } = await import('@/lib/api/audit');
+      const timer = createAuditTimer();
+      
+      const auditContext = extractAuditContext(req, userId, {
+        vaultType: 'my_vault',
+        vaultId: vaultId,
+        vaultItemId: vaultItem.id,
       });
+
+      const auditMetadata: Record<string, any> = {
+        category,
+        hasFile: !!s3Key,
+        isOwner: isOwner,
+      };
+
+      // Add file size if file was uploaded
+      if (fileSizeMB !== undefined) {
+        auditMetadata.fileSizeMB = fileSizeMB;
+      }
+
+      await logDataModification(
+        auditContext,
+        'item_uploaded',
+        'vault_item',
+        vaultItem.id,
+        {
+          description: 'Item uploaded to My Vault',
+          outcome: 'success',
+          durationMs: timer.end(),
+          metadata: auditMetadata,
+        }
+      );
     } catch (logError) {
       console.error('Failed to log MyVault item upload:', logError);
     }

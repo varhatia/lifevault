@@ -1,4 +1,4 @@
-// Client-side cryptography utilities for LifeVault.
+// Client-side cryptography utilities for LivPeace.
 // For MVP these are intentionally lightweight stubs around Web Crypto and
 // Shamir Secret Sharing; you can flesh out the implementations later.
 

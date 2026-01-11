@@ -366,12 +366,6 @@ function LifeSetupSection({
             <p className="mt-1 text-[11px] text-slate-400">
               Completed. You can review or update anytime.
             </p>
-            <Link
-              href="/actions"
-              className="mt-3 inline-flex items-center rounded-md border border-slate-700 bg-slate-800 px-3 py-1.5 text-[11px] font-medium text-slate-100 hover:border-brand-500 hover:text-brand-100"
-            >
-              Review setup
-            </Link>
           </div>
         </div>
       </div>
@@ -636,12 +630,6 @@ function ActivitySummaryCard({
           <span className="text-slate-100">{nextReminderText}</span>
         </div>
       </div>
-      <Link
-        href="/actions"
-        className="mt-4 inline-flex items-center justify-center rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-[11px] font-medium text-slate-100 hover:border-brand-500 hover:text-brand-100"
-      >
-        Enter Review Mode
-      </Link>
     </div>
   );
 }

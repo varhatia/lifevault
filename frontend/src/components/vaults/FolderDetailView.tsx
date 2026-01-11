@@ -2340,14 +2340,17 @@ function DocumentSection({
   const [showTooltip, setShowTooltip] = useState(false);
   const helperText = template?.type ? SECTION_HELPER_TEXTS[template.type] : null;
 
+  // Position tooltip above when there are no items (section is small), below otherwise
+  const tooltipPosition = items.length === 0 ? 'above' : 'below';
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-soft">
+    <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-soft overflow-visible">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
+        <div className="flex-1 overflow-visible">
+          <div className="flex items-center gap-2 relative overflow-visible">
             <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
             {helperText && (
-              <div className="relative">
+              <div className="relative overflow-visible">
                 <button
                   type="button"
                   onMouseEnter={() => setShowTooltip(true)}
@@ -2361,11 +2364,19 @@ function DocumentSection({
                   <Info className="w-4 h-4" />
                 </button>
                 {showTooltip && (
-                  <div className="absolute left-0 top-full mt-2 z-50 w-80 max-w-[90vw] rounded-lg border border-gray-300 bg-white p-4 shadow-large">
+                  <div 
+                    className={`absolute left-0 z-[100] w-80 max-w-[90vw] rounded-lg border border-gray-300 bg-white p-4 shadow-large pointer-events-none ${
+                      tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'
+                    }`}
+                  >
                     <p className="text-sm text-gray-700 leading-relaxed whitespace-normal break-words">
                       {helperText}
                     </p>
-                    <div className="absolute -top-1 left-4 w-2 h-2 rotate-45 bg-white border-l border-t border-gray-300"></div>
+                    {tooltipPosition === 'above' ? (
+                      <div className="absolute -bottom-1 left-4 w-2 h-2 rotate-45 bg-white border-r border-b border-gray-300"></div>
+                    ) : (
+                      <div className="absolute -top-1 left-4 w-2 h-2 rotate-45 bg-white border-l border-t border-gray-300"></div>
+                    )}
                   </div>
                 )}
               </div>

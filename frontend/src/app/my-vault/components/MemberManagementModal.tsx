@@ -109,7 +109,7 @@ export default function MemberManagementModal({
       const maxAllowed = plan === "free" ? 2 : Infinity;
       const message =
         plan === "free"
-          ? "Free plan allows up to 2 members per vault. Please upgrade to LifeVault Plus to add unlimited members."
+          ? "Free plan allows up to 2 members per vault. Please upgrade to LivPeace Plus to add unlimited members."
           : "Unable to add member. Please contact support.";
 
       if (onLimitReached) {
@@ -181,7 +181,7 @@ export default function MemberManagementModal({
           const message =
             errorData.message ||
             (plan === "free"
-              ? "Free plan allows up to 2 members per vault. Please upgrade to LifeVault Plus to add unlimited members."
+              ? "Free plan allows up to 2 members per vault. Please upgrade to LivPeace Plus to add unlimited members."
               : "Unable to add member. Please contact support.");
 
           if (onLimitReached) {

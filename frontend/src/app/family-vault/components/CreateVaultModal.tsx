@@ -219,7 +219,7 @@ export default function CreateVaultModal({
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `lifevault-recovery-key-${name.trim()}.txt`;
+                    a.download = `livpeace-recovery-key-${name.trim()}.txt`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);

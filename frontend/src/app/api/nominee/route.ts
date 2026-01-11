@@ -353,7 +353,7 @@ export async function POST(req: NextRequest) {
           currentCount: currentNomineeCount,
           maxAllowed: plan === "free" ? 1 : Infinity,
           message: plan === "free" 
-            ? 'Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees.'
+            ? 'Free plan allows only 1 nominee. Please upgrade to LivPeace Plus to add multiple nominees.'
             : 'Unable to add nominee. Please contact support.',
         },
         { status: 403 }

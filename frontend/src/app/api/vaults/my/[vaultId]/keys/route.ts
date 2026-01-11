@@ -44,7 +44,7 @@ export async function PUT(
       );
     }
 
-    // Log vault keys fetch as a vault unlock attempt
+    // Log vault keys fetch as a vault unlock attempt (via master password)
     try {
       const now = new Date();
       await (prisma as any).activityLog.create({
@@ -53,13 +53,16 @@ export async function PUT(
           vaultType: 'my_vault',
           myVaultId: vault.id,
           action: 'myvault_unlocked',
-          description: 'Vault keys fetched for unlock',
+          description: 'Vault unlocked via master password - keys fetched',
           ipAddress:
             req.headers.get('x-forwarded-for') ||
             req.headers.get('x-real-ip') ||
             null,
           userAgent: req.headers.get('user-agent') || null,
           metadata: {
+            severity: 'info',
+            outcome: 'success',
+            unlockMethod: 'master_password',
             hasVerifier: !!vault.masterPasswordVerifier,
             hasRecoveryKey: !!vault.recoveryKeyEncryptedVaultKey,
           },
@@ -72,6 +75,9 @@ export async function PUT(
 
     // Update vault with verifier and/or encrypted vault keys
     const updateData: any = {};
+    const isMasterPasswordReset = masterPasswordVerifier !== undefined;
+    const isRecoveryKeyUpdate = recoveryKeyEncryptedVaultKey !== undefined;
+    
     if (masterPasswordVerifier !== undefined) {
       updateData.masterPasswordVerifier = masterPasswordVerifier;
       // Track when master password is changed (verifier update indicates password change)
@@ -93,6 +99,35 @@ export async function PUT(
       where: { id: vaultId },
       data: updateData,
     });
+
+    // Log master password reset if password was changed (not just recovery key update)
+    if (isMasterPasswordReset && !isRecoveryKeyUpdate) {
+      try {
+        const now = new Date();
+        await (prisma as any).activityLog.create({
+          data: {
+            userId,
+            vaultType: 'my_vault',
+            myVaultId: vault.id,
+            action: 'myvault_master_password_reset',
+            description: 'My Vault master password reset',
+            ipAddress:
+              req.headers.get('x-forwarded-for') ||
+              req.headers.get('x-real-ip') ||
+              null,
+            userAgent: req.headers.get('user-agent') || null,
+            metadata: {
+              severity: 'critical', // Highly sensitive security operation
+              outcome: 'success',
+              passwordResetMethod: 'direct', // Direct password reset (not via recovery key)
+            },
+            createdAt: now,
+          },
+        });
+      } catch (logError) {
+        console.error('Failed to log MyVault master password reset activity:', logError);
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -179,6 +214,11 @@ export async function GET(
     }
 
     // Log vault unlock activity (keys fetched for unlock)
+    // Determine unlock method based on available keys
+    const unlockMethod = vault.recoveryKeyEncryptedVaultKey && !vault.masterPasswordVerifier 
+      ? 'recovery_key' 
+      : 'master_password';
+    
     try {
       const now = new Date();
       await (prisma as any).activityLog.create({
@@ -187,15 +227,19 @@ export async function GET(
           vaultType: 'my_vault',
           myVaultId: vault.id,
           action: 'myvault_unlocked',
-          description: 'Vault unlocked - keys fetched successfully',
+          description: `Vault unlocked via ${unlockMethod === 'recovery_key' ? 'recovery key' : 'master password'} - keys fetched successfully`,
           ipAddress:
             req.headers.get('x-forwarded-for') ||
             req.headers.get('x-real-ip') ||
             null,
           userAgent: req.headers.get('user-agent') || null,
           metadata: {
+            severity: unlockMethod === 'recovery_key' ? 'warning' : 'info', // Recovery key unlock is more sensitive
+            outcome: 'success',
+            unlockMethod,
             hasVerifier: !!vault.masterPasswordVerifier,
             hasRecoveryKey: !!vault.recoveryKeyEncryptedVaultKey,
+            isOwner,
           },
           createdAt: now,
         },

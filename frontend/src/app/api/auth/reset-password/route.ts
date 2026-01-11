@@ -77,7 +77,10 @@ export async function POST(req: NextRequest) {
           description: 'User password was reset via reset link',
           ipAddress: ip,
           userAgent,
-          metadata: {},
+          metadata: {
+            severity: 'warning', // Security-sensitive operation
+            outcome: 'success',
+          },
           createdAt: now,
         },
       });

@@ -183,7 +183,7 @@ export default function RecoveryKeyResetModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `lifevault-recovery-key-${vaultName.replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.txt`;
+    a.download = `livpeace-recovery-key-${vaultName.replace(/\s+/g, "-")}-${new Date().toISOString().split("T")[0]}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

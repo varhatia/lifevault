@@ -30,7 +30,7 @@ export default function UpgradeModal({
 
   const handleUpgrade = () => {
     onClose();
-    router.push("/#pricing");
+    router.push("/upgrade-now");
   };
 
   const getLimitMessage = () => {
@@ -77,7 +77,7 @@ export default function UpgradeModal({
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-white">
           <div className="flex items-center gap-3 mb-2">
             <Sparkles className="h-8 w-8" />
-            <h2 className="text-2xl font-bold">Upgrade to LifeVault Plus</h2>
+            <h2 className="text-2xl font-bold">Upgrade to LivPeace Plus</h2>
           </div>
           <p className="text-blue-100 text-sm">
             {getLimitMessage()}
@@ -88,7 +88,7 @@ export default function UpgradeModal({
         <div className="p-6">
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Unlock unlimited access with LifeVault Plus
+              Unlock unlimited access with LivPeace Plus
             </h3>
             <ul className="space-y-3">
               {plusFeatures.map((feature, index) => (

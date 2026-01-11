@@ -76,7 +76,10 @@ export async function POST(
             null,
           userAgent: req.headers.get('user-agent') || null,
           metadata: {
-            // No sensitive content
+            severity: 'critical', // Highly sensitive security operation
+            outcome: 'success',
+            nomineesInvalidated: true,
+            masterPasswordReset: true,
           },
           createdAt: now,
         },

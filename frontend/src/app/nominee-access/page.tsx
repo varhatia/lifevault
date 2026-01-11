@@ -143,7 +143,7 @@ function NomineeAccessContent() {
       <div className="text-center">
         <h1 className="text-3xl font-semibold tracking-tight">Nominee Access</h1>
         <p className="mt-2 text-sm text-slate-300">
-          Request access to a LifeVault or unlock an approved vault
+          Request access to a LivPeace or unlock an approved vault
         </p>
       </div>
 
@@ -285,7 +285,7 @@ function NomineeAccessContent() {
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-white">Request Access</h2>
             <p className="mt-1 text-xs text-slate-400">
-              Fill out this form to request read-only access to a LifeVault. The vault owner will be notified and can approve or reject your request.
+              Fill out this form to request read-only access to a LivPeace. The vault owner will be notified and can approve or reject your request.
             </p>
           </div>
 

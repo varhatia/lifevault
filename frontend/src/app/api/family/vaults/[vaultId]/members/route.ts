@@ -264,7 +264,7 @@ export async function POST(
     if (!targetUser) {
       return NextResponse.json(
         { 
-          error: 'User not found. The person must sign up for LifeVault first before being added to a family vault.',
+          error: 'User not found. The person must sign up for LivPeace first before being added to a family vault.',
           requiresSignup: true,
         },
         { status: 404 }

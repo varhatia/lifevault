@@ -162,7 +162,7 @@ export default function SetupVaultPage() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `lifevault-recovery-key-${new Date().toISOString().split('T')[0]}.txt`;
+                    a.download = `livpeace-recovery-key-${new Date().toISOString().split('T')[0]}.txt`;
                     a.click();
                     URL.revokeObjectURL(url);
                     setRecoveryKeySaved(true);

@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
     const cursorParam = searchParams.get('cursor');
     const vaultTypeParam = searchParams.get('vaultType');
     const actionParam = searchParams.get('action');
+    const severityParam = searchParams.get('severity');
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
 
-    const limit = Math.min(Math.max(Number(limitParam) || 20, 1), 100);
+    const limit = Math.min(Math.max(Number(limitParam) || 50, 1), 200);
 
     const where: any = {
       userId: String(user.id),
@@ -38,6 +39,14 @@ export async function GET(req: NextRequest) {
     }
     if (actionParam) {
       where.action = actionParam;
+    }
+    if (severityParam) {
+      // Filter by severity stored in metadata JSONB field
+      // Prisma JSONB filtering syntax
+      where.metadata = {
+        path: ['severity'],
+        equals: severityParam,
+      } as any;
     }
     if (fromParam || toParam) {
       where.createdAt = {};
@@ -59,6 +68,16 @@ export async function GET(req: NextRequest) {
       where,
       orderBy: { createdAt: 'desc' },
       take: limit + 1, // one extra to know if next page exists
+      select: {
+        id: true,
+        vaultType: true,
+        action: true,
+        description: true,
+        ipAddress: true,
+        userAgent: true,
+        metadata: true,
+        createdAt: true,
+      },
       ...(cursorParam
         ? {
             cursor: {

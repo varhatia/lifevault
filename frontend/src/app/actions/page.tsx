@@ -170,7 +170,7 @@ export default function ActionsReviewPage() {
             Review Mode
           </h1>
           <p className="mt-1 max-w-xl text-xs text-slate-300">
-            A guided checklist to keep your LifeVault current. The goal is not
+            A guided checklist to keep your LivPeace current. The goal is not
             completion. The goal is confidence that your family can find what
             they need.
           </p>

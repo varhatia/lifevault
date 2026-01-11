@@ -133,7 +133,7 @@ export default function SignupPage() {
         {/* Header */}
         <div className="mb-8 text-center">
           <Link href="/" className="inline-block mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">LifeVault</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">LivPeace</h1>
           </Link>
           <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Create your account</h2>
           <p className="mt-2 text-base text-gray-600">

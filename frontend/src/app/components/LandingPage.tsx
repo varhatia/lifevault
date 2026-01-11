@@ -62,7 +62,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Why LifeVault */}
+      {/* Why LivPeace */}
       <section id="why" className="border-b border-gray-200 bg-white py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
@@ -73,7 +73,7 @@ export default function LandingPage() {
                 When families need it most, access becomes difficult.
               </p>
               <p className="text-base text-gray-600">
-                LifeVault brings everything together—securely, privately, and thoughtfully. Private when you need it, shared when you want it.
+                LivPeace brings everything together—securely, privately, and thoughtfully. Private when you need it, shared when you want it.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3 lg:w-1/2">
@@ -155,7 +155,7 @@ export default function LandingPage() {
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Nominee Access</p>
             <h3 className="text-3xl font-semibold text-gray-900">Available to Loved Ones — When Needed</h3>
             <p className="text-base text-gray-600">
-              LifeVault ensures your nominated loved ones can access critical information if you're ever unavailable—
+              LivPeace ensures your nominated loved ones can access critical information if you're ever unavailable—
               without compromising your privacy.
             </p>
             <div className="space-y-3">
@@ -236,7 +236,7 @@ export default function LandingPage() {
               highlight={false}
             />
             <PricingCard
-              name="LifeVault Plus"
+              name="LivPeace Plus"
               price="₹99"
               period="month"
               description="For families that want more."
@@ -301,7 +301,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-4">
         <h3 className="text-3xl font-semibold text-gray-900">Coming Soon</h3> 
           <p className="text-base text-gray-600 max-w-2xl">
-            Trusted ecosystem - LifeVault is designed to integrate with insurers, hospitals, lawyers, and estate planners - helping families stay prepared and protected.
+            Trusted ecosystem - LivPeace is designed to integrate with insurers, hospitals, lawyers, and estate planners - helping families stay prepared and protected.
           </p>
         </div>
       </section>
@@ -317,7 +317,7 @@ export default function LandingPage() {
             href="/auth/signup"
             className="inline-flex items-center gap-2 rounded-md bg-white px-6 py-2.5 text-base font-medium text-brand-500 hover:bg-gray-50 transition-colors"
           >
-            Get Started with LifeVault
+            Get Started with LivPeace
             <ArrowRight className="h-5 w-5" />
           </Link>
         </div>
@@ -328,10 +328,10 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between text-sm">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500 text-xs font-semibold text-white">
-              LV
+              LP
             </div>
             <div>
-              <div className="font-semibold text-gray-900">LifeVault</div>
+              <div className="font-semibold text-gray-900">LivPeace</div>
               <div className="text-xs text-gray-500">Secure digital personal and family vault</div>
             </div>
           </div>
@@ -534,12 +534,12 @@ function FAQItem({
 
 const faqData = [
   {
-    question: "Why do I need LifeVault when I already use Google Drive / Dropbox?",
+    question: "Why do I need LivPeace when I already use Google Drive / Dropbox?",
     answer: (
       <>
         Google Drive and Dropbox are file storage tools.
         <br />
-        LifeVault is a life continuity platform.
+        LivPeace is a life continuity platform.
         <br />
         <br />
         <strong>File storage apps:</strong>
@@ -550,7 +550,7 @@ const faqData = [
           <li>Don't unlock access if you're no longer around</li>
         </ul>
         <br />
-        <strong>LifeVault is designed specifically for:</strong>
+        <strong>LivPeace is designed specifically for:</strong>
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Organizing critical life documents</li>
           <li>Helping loved ones find the right information at the right time</li>
@@ -578,7 +578,7 @@ const faqData = [
           <li>Important documents are scattered across emails, drives, and folders</li>
         </ul>
         <br />
-        <strong>LifeVault gives you:</strong>
+        <strong>LivPeace gives you:</strong>
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>A single, organized place</li>
           <li>Clear structure for essential information</li>
@@ -601,7 +601,7 @@ const faqData = [
           <li>Accessible only to the person who stored them</li>
         </ul>
         <br />
-        LifeVault doesn't replace physical documents — it complements them by:
+        LivPeace doesn't replace physical documents — it complements them by:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Creating a digital index of what exists</li>
           <li>Storing scanned copies securely</li>
@@ -615,15 +615,15 @@ const faqData = [
     ),
   },
   {
-    question: "How is LifeVault different from a password manager?",
+    question: "How is LivPeace different from a password manager?",
     answer: (
       <>
         Password managers focus on daily access.
         <br />
-        LifeVault focuses on life events.
+        LivPeace focuses on life events.
         <br />
         <br />
-        <strong>LifeVault:</strong>
+        <strong>LivPeace:</strong>
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Does not require storing passwords</li>
           <li>Helps your family understand what accounts exist</li>
@@ -631,21 +631,21 @@ const faqData = [
           <li>Activates access based on inactivity or emergency scenarios</li>
         </ul>
         <br />
-        You can use LifeVault alongside a password manager — not instead of one.
+        You can use LivPeace alongside a password manager — not instead of one.
       </>
     ),
   },
   {
-    question: "Will LifeVault ever see or read my documents?",
+    question: "Will LivPeace ever see or read my documents?",
     answer: (
       <>
         No.
         <br />
         <br />
-        LifeVault uses client-side encryption, which means:
+        LivPeace uses client-side encryption, which means:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Your data is encrypted before it leaves your device</li>
-          <li>LifeVault servers store only encrypted data</li>
+          <li>LivPeace servers store only encrypted data</li>
           <li>We cannot read your documents, notes, or instructions</li>
           <li>Only you — and the people you explicitly authorize — can access your information</li>
         </ul>
@@ -653,7 +653,7 @@ const faqData = [
     ),
   },
   {
-    question: "What happens if I stop using the app or LifeVault shuts down?",
+    question: "What happens if I stop using the app or LivPeace shuts down?",
     answer: (
       <>
         Your data is never locked in.
@@ -663,7 +663,7 @@ const faqData = [
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Export a complete offline backup (PDF or encrypted archive)</li>
           <li>Store it with a lawyer, family member, or secure device</li>
-          <li>Retain access even without LifeVault</li>
+          <li>Retain access even without LivPeace</li>
         </ul>
         <br />
         We believe:
@@ -679,7 +679,7 @@ const faqData = [
         Not at all.
         <br />
         <br />
-        LifeVault is designed to be:
+        LivPeace is designed to be:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Built gradually</li>
           <li>Updated over time</li>
@@ -703,7 +703,7 @@ const faqData = [
         No — and this is important.
         <br />
         <br />
-        LifeVault is useful for:
+        LivPeace is useful for:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Medical emergencies</li>
           <li>Travel or hospitalization</li>
@@ -733,7 +733,7 @@ const faqData = [
     ),
   },
   {
-    question: "Why should I pay for LifeVault?",
+    question: "Why should I pay for LivPeace?",
     answer: (
       <>
         You're not paying for storage.
@@ -757,10 +757,10 @@ const faqData = [
     ),
   },
   {
-    question: "Who is LifeVault for?",
+    question: "Who is LivPeace for?",
     answer: (
       <>
-        LifeVault is for anyone who:
+        LivPeace is for anyone who:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>Has dependents or family</li>
           <li>Manages finances, insurance, or digital accounts</li>
@@ -781,7 +781,7 @@ const faqData = [
         No.
         <br />
         <br />
-        LifeVault does not replace:
+        LivPeace does not replace:
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
           <li>A will</li>
           <li>Legal advice</li>
@@ -798,7 +798,7 @@ const faqData = [
     ),
   },
   {
-    question: "How often do I need to use LifeVault?",
+    question: "How often do I need to use LivPeace?",
     answer: (
       <>
         As little or as often as you like.
@@ -811,7 +811,7 @@ const faqData = [
           <li>Appreciate reminders to stay current</li>
         </ul>
         <br />
-        LifeVault is not meant to be a daily app —
+        LivPeace is not meant to be a daily app —
         <br />
         it's meant to be a reliable one.
       </>

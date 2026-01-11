@@ -169,7 +169,7 @@ export default function NomineePage() {
           </h2>
           <ol className="mt-2 list-inside list-decimal space-y-1 text-slate-300">
             <li>You add a nominee (email or mobile).</li>
-            <li>LifeVault generates and delivers Nominee Key (Part C).</li>
+            <li>LivPeace generates and delivers Nominee Key (Part C).</li>
             <li>
               On trigger, nominee uploads their key and combines with
               service-held Part B.

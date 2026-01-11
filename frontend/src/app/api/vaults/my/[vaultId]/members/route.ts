@@ -241,7 +241,7 @@ export async function POST(
             currentCount: vaultMemberCount,
             maxAllowed: plan === "free" ? 2 : Infinity,
             message: plan === "free"
-              ? `Free plan allows up to 2 members per vault. You currently have ${vaultMemberCount} member(s). Please upgrade to LifeVault Plus to add unlimited members.`
+              ? `Free plan allows up to 2 members per vault. You currently have ${vaultMemberCount} member(s). Please upgrade to LivPeace Plus to add unlimited members.`
               : 'Unable to add member. Please contact support.',
           },
           { status: 403 }
@@ -312,7 +312,7 @@ export async function POST(
     if (!targetUser) {
       return NextResponse.json(
         { 
-          error: 'User not found. The person must sign up for LifeVault first before being added to a vault.',
+          error: 'User not found. The person must sign up for LivPeace first before being added to a vault.',
           requiresSignup: true,
         },
         { status: 404 }

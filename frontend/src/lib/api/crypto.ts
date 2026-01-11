@@ -1,5 +1,5 @@
 /**
- * Server-side cryptography helpers for LifeVault API routes.
+ * Server-side cryptography helpers for LivPeace API routes.
  * 
  * The backend never sees raw vault contents; it only deals with:
  * - Encrypted vault blobs generated client-side (AES-256 in the browser)

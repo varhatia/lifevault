@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
  */
 export async function GET() {
   return NextResponse.json({
-    name: 'LifeVault API',
+    name: 'LivPeace API',
     version: '0.1.0',
     description: 'Zero-knowledge encrypted vault API',
     endpoints: {

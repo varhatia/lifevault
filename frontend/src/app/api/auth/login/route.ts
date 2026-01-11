@@ -125,6 +125,8 @@ export async function POST(req: NextRequest) {
           ipAddress: ip,
           userAgent,
           metadata: {
+            severity: 'info',
+            outcome: 'success',
             deviceAuthorized,
             deviceFingerprint: deviceFingerprint || null,
           },

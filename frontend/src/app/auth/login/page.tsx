@@ -152,12 +152,12 @@ export default function LoginPage() {
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-md bg-brand-500 text-base font-semibold text-white">
-              LV
+              LP
             </div>
           </div>
           <h1 className="text-2xl font-semibold text-gray-900">Sign in</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your LifeVault account
+            Sign in to your LivPeace account
           </p>
         </div>
 

@@ -23,7 +23,8 @@ import { useAuth } from "@/lib/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import { usePlanUsage } from "@/hooks/usePlanUsage";
 import UpgradeModal from "@/components/UpgradeModal";
-import { Sparkles, Info } from "lucide-react";
+import { Sparkles, Info, Bell } from "lucide-react";
+import ReviewReminderSettings from "@/app/my-vault/components/ReviewReminderSettings";
 
 type AccountData = {
   profile: {
@@ -133,6 +134,8 @@ export default function MyAccountPage() {
     createdAt: string;
   }>>([]);
   const [vaultsSecurityLoading, setVaultsSecurityLoading] = useState(false);
+  const [showReviewSettings, setShowReviewSettings] = useState(false);
+  const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -306,7 +309,7 @@ export default function MyAccountPage() {
         limitType="storage"
         currentStorageMB={usage.storageUsedMB}
         maxAllowed={plan === "free" ? 5 : Infinity}
-        message="Upgrade to LifeVault Plus for unlimited storage and advanced features."
+        message="Upgrade to LivPeace Plus for unlimited storage and advanced features."
       />
 
       <header>
@@ -359,7 +362,7 @@ export default function MyAccountPage() {
           {plan === "free" && (
             <button
               onClick={() => {
-                router.push("/#pricing");
+                router.push("/upgrade-now");
               }}
               className="ml-4 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
             >
@@ -766,6 +769,45 @@ export default function MyAccountPage() {
           </div>
         )}
       </section>
+
+      {/* Review Reminder Settings Section */}
+      {vaultsSecurity && vaultsSecurity.length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Bell className="w-5 h-5 text-gray-600" />
+            Review Reminder Settings
+          </h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Configure how often you want to be reminded to review each vault. Default is monthly.
+          </p>
+          <div className="space-y-3">
+            {vaultsSecurity.map((vault) => (
+              <VaultReviewSettingsItem
+                key={vault.vaultId}
+                vault={vault}
+                onOpenSettings={() => {
+                  setSelectedVaultId(vault.vaultId);
+                  setShowReviewSettings(true);
+                }}
+              />
+            ))}
+          </div>
+          {vaultsSecurity.map((vault) => (
+            <ReviewReminderSettings
+              key={vault.vaultId}
+              isOpen={showReviewSettings && selectedVaultId === vault.vaultId}
+              onClose={() => {
+                setShowReviewSettings(false);
+                setSelectedVaultId(null);
+              }}
+              vaultId={vault.vaultId}
+              onSettingsUpdated={() => {
+                loadVaultsSecurity();
+              }}
+            />
+          ))}
+        </section>
+      )}
     </div>
   );
 }
@@ -790,6 +832,65 @@ function SecurityIndicator({
         <p className="text-xs font-medium text-gray-900 mb-1">{label}</p>
         <p className="text-[10px] text-gray-600">{detail}</p>
       </div>
+    </div>
+  );
+}
+
+function VaultReviewSettingsItem({
+  vault,
+  onOpenSettings,
+}: {
+  vault: {
+    vaultId: string;
+    vaultName: string;
+  };
+  onOpenSettings: () => void;
+}) {
+  const [frequency, setFrequency] = useState<"monthly" | "quarterly" | "biannual">("monthly");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadFrequency();
+  }, [vault.vaultId]);
+
+  const loadFrequency = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/vaults/my/${vault.vaultId}/review/reminder`);
+      if (res.ok) {
+        const data = await res.json();
+        setFrequency(data.reviewReminderFrequency || "monthly");
+      }
+    } catch (error) {
+      console.error("Error loading reminder settings:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getFrequencyLabel = (freq: string) => {
+    switch (freq) {
+      case "monthly": return "Every month";
+      case "quarterly": return "Every 3 months";
+      case "biannual": return "Every 6 months";
+      default: return freq;
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+      <div>
+        <p className="text-sm font-medium text-gray-900">{vault.vaultName}</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Current: {loading ? "Loading..." : getFrequencyLabel(frequency)}
+        </p>
+      </div>
+      <button
+        onClick={onOpenSettings}
+        className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+      >
+        Configure
+      </button>
     </div>
   );
 }

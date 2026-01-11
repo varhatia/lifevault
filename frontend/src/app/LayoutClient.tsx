@@ -33,11 +33,11 @@ export default function LayoutClient({
         <header className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold">
-              LV
+              LP
             </div>
             <div>
               <div className="text-lg font-semibold tracking-tight">
-                LifeVault
+                LivPeace
               </div>
               <div className="text-xs text-slate-400">
                 Secure digital personal and family vault

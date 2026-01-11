@@ -1,5 +1,5 @@
 /**
- * S3 Service for LifeVault (Server-side only)
+ * S3 Service for LivPeace (Server-side only)
  * Handles encrypted file storage with zero-knowledge architecture
  * Server never sees plaintext - only encrypted blobs
  * 

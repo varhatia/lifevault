@@ -111,6 +111,18 @@ export async function GET(req: NextRequest) {
 
     const storageUsedMB = bytesToMB(totalStorageBytes);
 
+    // Fetch subscription plan directly from database
+    const userWithPlan = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        subscriptionPlan: true,
+        subscriptionStatus: true,
+        subscriptionExpiresAt: true,
+      },
+    });
+
+    const plan = (userWithPlan?.subscriptionPlan || "free") as "free" | "plus";
+
     return NextResponse.json({
       usage: {
         vaultCount,
@@ -118,7 +130,9 @@ export async function GET(req: NextRequest) {
         memberCount: totalMemberCount,
         storageUsedMB,
       },
-      plan: (user as any).subscriptionPlan || "free",
+      plan,
+      subscriptionStatus: userWithPlan?.subscriptionStatus || null,
+      subscriptionExpiresAt: userWithPlan?.subscriptionExpiresAt?.toISOString() || null,
     });
   } catch (error) {
     console.error('Error fetching usage stats:', error);

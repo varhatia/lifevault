@@ -626,12 +626,12 @@ export default function AddNomineeModal({
                         usage.nomineeCount,
                         plan === "free" ? 1 : Infinity,
                         plan === "free" 
-                          ? "Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees."
+                          ? "Free plan allows only 1 nominee. Please upgrade to LivPeace Plus to add multiple nominees."
                           : "Unable to add nominee. Please contact support."
                       );
                     } else {
                       setError(plan === "free" 
-                        ? "Free plan allows only 1 nominee. Please upgrade to LifeVault Plus to add multiple nominees."
+                        ? "Free plan allows only 1 nominee. Please upgrade to LivPeace Plus to add multiple nominees."
                         : "Unable to add nominee. Please contact support.");
                     }
                     // Close the nominee modal when limit is reached so upgrade modal isn't hidden behind it

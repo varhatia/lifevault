@@ -363,7 +363,7 @@ function FamilyVaultSetupContent() {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `lifevault-recovery-key-${vaultName}.txt`;
+                    a.download = `livpeace-recovery-key-${vaultName}.txt`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
