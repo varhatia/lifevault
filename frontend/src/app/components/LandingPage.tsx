@@ -16,6 +16,14 @@ import {
   KeyRound,
   FolderOpen,
   ChevronDown,
+  Heart,
+  Search,
+  Eye,
+  Target,
+  Sparkles,
+  Grid3x3,
+  HelpCircle,
+  Tag,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -42,7 +50,7 @@ export default function LandingPage() {
               Your life, organized. Your loved ones, protected.
               </h1>
               <p className="text-lg text-gray-600">
-                Securely store, organize, and share your most important financial, legal, and personal documents—so the people you trust always have access when it matters most.
+                Securely organize the information your family would need in an emergency — finances, insurance, legal documents, and more — so nothing is left to guesswork when it matters most.
               </p>
             </div>
             <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -63,23 +71,99 @@ export default function LandingPage() {
       </section>
 
       {/* Why LivPeace */}
-      <section id="why" className="border-b border-gray-200 bg-white py-16">
+      <section id="why" className="border-b border-gray-200 bg-gray-50 py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl space-y-4">
-              <h2 className="text-3xl font-semibold text-gray-900">One place for everything that matters</h2>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                  <Target className="h-6 w-6 text-brand-500" />
+                </div>
+                <h2 className="text-3xl font-semibold text-gray-900">One place for everything that matters</h2>
+              </div>
               <p className="text-base text-gray-600">
                 Critical information is often scattered across emails, phones, cloud drives, and paper files.
-                When families need it most, access becomes difficult.
+                When families need it most, access becomes difficult. 
+                </p>
+              <p className="text-base text-gray-600">
+                LivPeace helps you understand what to organize, where to put it, and who should have access by bringing everything together—securely, privately, and thoughtfully
               </p>
               <p className="text-base text-gray-600">
-                LivPeace brings everything together—securely, privately, and thoughtfully. Private when you need it, shared when you want it.
+                Private when you need it, shared when you want it.
               </p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3 lg:w-1/2">
-              <Stat label="Zero-knowledge" value="Client-side" />
-              <Stat label="Family-ready" value="Private + shared vaults" />
-              <Stat label="Nominee access" value="Inactivity triggers" />
+              <Stat label="Private by default" value="Client-side" />
+              <Stat label="Built for real families" value="Private + shared vaults" />
+              <Stat label="Access when you’re unavailable" value="Inactivity triggers" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Life Preparedness for Modern Families */}
+      <section id="preparedness" className="border-b border-gray-200 bg-white py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl space-y-6">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                  <Heart className="h-6 w-6 text-brand-500" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-3xl font-semibold text-gray-900">Life preparedness for modern families</h2>
+                  <p className="text-base text-gray-500 italic mt-2">
+                    Because being prepared today is more than keeping papers in a file.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4 text-base text-gray-600 leading-relaxed">
+             <p>
+                LivPeace helps families prepare — not by predicting the worst, but by making sure the right information is organized, current, and accessible when it matters most.
+              </p>
+            </div>
+            <div className="space-y-4 pt-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                    <FileText className="h-5 w-5 text-brand-500" />
+                  </div>
+                  <p className="text-base text-gray-700 font-medium">Know what information matters and how to organize it</p>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                    <Bell className="h-5 w-5 text-brand-500" />
+                  </div>
+                  <p className="text-base text-gray-700 font-medium">Keep essential details up to date with gentle reminders</p>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                    <Users className="h-5 w-5 text-brand-500" />
+                  </div>
+                  <p className="text-base text-gray-700 font-medium">Ensure your family isn't left searching, guessing, or overwhelmed</p>
+                </div>
+                <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                    <KeyRound className="h-5 w-5 text-brand-500" />
+                  </div>
+                  <p className="text-base text-gray-700 font-medium">Share access intentionally, not broadly</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                  <Shield className="h-5 w-5 text-brand-500" />
+                </div>
+                <p className="text-base text-gray-700 font-medium">Stay prepared without exposing sensitive information</p>
+              </div>
+            </div>
+            <div className="pt-6 border-t border-gray-200">
+              <div className="flex items-start gap-3">
+                <Heart className="h-5 w-5 text-brand-500 mt-0.5 flex-shrink-0" />
+                <p className="text-base text-gray-700 font-medium italic">
+                  Preparedness isn't about fear — it's about responsibility, clarity, and peace of mind for the people you care about.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -89,7 +173,12 @@ export default function LandingPage() {
       <section id="features" className="border-b border-gray-200 bg-gray-50 py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10">
-            <h3 className="text-3xl font-semibold text-gray-900 mt-2">Built for secure, family-first organization</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <Sparkles className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Built for secure, family-first organization</h3>
+            </div>
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             <FeatureCard
@@ -149,11 +238,15 @@ export default function LandingPage() {
       </section> */}
 
       {/* Nominee Access */}
-      <section id="nominee" className="border-b border-gray-200 bg-gray-50 py-16">
+      <section id="nominee" className="border-b border-gray-200 bg-white py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 grid gap-10 lg:grid-cols-2 lg:items-center">
           <div className="space-y-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Nominee Access</p>
-            <h3 className="text-3xl font-semibold text-gray-900">Available to Loved Ones — When Needed</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <KeyRound className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Available to Loved Ones — When Needed</h3>
+            </div>
             <p className="text-base text-gray-600">
               LivPeace ensures your nominated loved ones can access critical information if you're ever unavailable—
               without compromising your privacy.
@@ -208,12 +301,43 @@ export default function LandingPage() {
         </div>
       </section> */}
 
+
+      {/* Trust & Security */}
+      <section id="trust" className="border-b border-gray-200 bg-gray-50 py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <Shield className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Built for trust and privacy</h3>
+            </div>
+            <p className="text-base text-gray-600 max-w-2xl">
+            When families access sensitive information during stressful moments, privacy and trust matter more than ever. 
+            <br/> <br/> 
+            LivPeace is designed so your information stays private — even from us. Configurable inactivity window, gentle email nudges and secure, read-only nominee access when truly needed.
+            </p>
+            <p className="text-base text-gray-600 max-w-2xl"><strong>Privacy isn’t a feature at LivPeace — it’s a responsibility.</strong></p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <TrustPoint title="Zero-knowledge architecture" />
+            <TrustPoint title="Industry-grade encryption" />
+            <TrustPoint title="Privacy-first design" />
+            <TrustPoint title="You control access" />
+          </div>
+        </div>
+      </section>
+
       {/* Pricing */}
       <section id="pricing" className="border-b border-gray-200 bg-white py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 text-center">
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Pricing</p>
-            <h3 className="text-3xl font-semibold text-gray-900 mt-2">Start free, grow when you need</h3>
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <Tag className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Start free, grow when you need</h3>
+            </div>
           </div>
           <div className="grid gap-6 md:grid-cols-2">
             <PricingCard
@@ -256,30 +380,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Trust & Security */}
-      <section id="trust" className="border-b border-gray-200 bg-gray-50 py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-10 space-y-2">
-            <h3 className="text-3xl font-semibold text-gray-900">Security-first, privacy-first</h3>
-            <p className="text-base text-gray-600 max-w-2xl">
-              Thoughtful auto-sharing when you are unavailable: configurable inactivity window, gentle email nudges,
-              and secure, read-only nominee access when truly needed.
-            </p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <TrustPoint title="Zero-knowledge architecture" />
-            <TrustPoint title="Industry-grade encryption" />
-            <TrustPoint title="Privacy-first design" />
-            <TrustPoint title="You control access" />
-          </div>
-        </div>
-      </section>
 
       {/* Frequently Asked Questions */}
-      <section id="faq" className="border-b border-gray-200 bg-white py-16">
+      <section id="faq" className="border-b border-gray-200 bg-gray-50 py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10">
-            <h3 className="text-3xl font-semibold text-gray-900">Frequently Asked Questions</h3>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <HelpCircle className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Frequently Asked Questions</h3>
+            </div>
           </div>
           <div className="space-y-4">
             {faqData.map((faq, index) => (
@@ -299,16 +410,21 @@ export default function LandingPage() {
       {/* Ecosystem */}
       <section id="ecosystem" className="border-b border-slate-800 py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-4">
-        <h3 className="text-3xl font-semibold text-gray-900">Coming Soon</h3> 
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+              <Zap className="h-6 w-6 text-brand-500" />
+            </div>
+            <h3 className="text-3xl font-semibold text-gray-900">Coming Soon</h3>
+          </div> 
           <p className="text-base text-gray-600 max-w-2xl">
-            Trusted ecosystem - LivPeace is designed to integrate with insurers, hospitals, lawyers, and estate planners - helping families stay prepared and protected.
+            Trusted ecosystem - LivPeace is Designed to eventually integrate with insurers, hospitals, lawyers, and estate planners — so families can move faster when it matters.
           </p>
         </div>
       </section>
 
       {/* Final CTA */}
       <section id="final-cta" className="py-16 bg-brand-500">
-        <div className="mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8 space-y-4">
+        <div className="mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8 space-y-4">
           <h3 className="text-3xl font-semibold text-white sm:text-4xl">
             One vault for life. Peace of mind for your family.
           </h3>
@@ -533,6 +649,13 @@ function FAQItem({
 }
 
 const faqData = [
+  {
+    question: "What is LivPeace really for?",
+    answer: (
+      <>LivPeace helps you prepare your life’s essential information so your loved ones aren’t left searching during emergencies, medical situations, or after your absence. It’s not just storage — it’s preparedness with privacy.
+      </>
+    ),
+  },
   {
     question: "Why do I need LivPeace when I already use Google Drive / Dropbox?",
     answer: (
