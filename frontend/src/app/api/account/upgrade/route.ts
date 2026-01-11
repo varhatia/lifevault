@@ -14,8 +14,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Fetch user with subscription plan to check current status
+    const userWithPlan = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        subscriptionPlan: true,
+        subscriptionStatus: true,
+        subscriptionExpiresAt: true,
+      },
+    });
+
+    if (!userWithPlan) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     // Check if user is already on Plus plan
-    if (user.subscriptionPlan === "plus") {
+    if (userWithPlan.subscriptionPlan === "plus") {
       return NextResponse.json(
         { 
           error: "Account is already upgraded to Plus plan",
