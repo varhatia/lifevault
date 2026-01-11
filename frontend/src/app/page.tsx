@@ -77,24 +77,10 @@ export default function HomePage() {
     }
   }, [loading, isAuthenticated, router]);
 
-  // Show landing page for unauthenticated users
-  if (!loading && !isAuthenticated) {
-    return <LandingPage />;
-  }
-
-  // Show loading/redirecting state for authenticated users (prevents flash of old content)
-  if (loading || isAuthenticated) {
-    return (
-      <div className="space-y-6">
-        <div className="rounded-lg border border-gray-200 bg-white p-6 text-center shadow-soft">
-          <p className="text-sm text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Fallback (should not reach here - authenticated users are redirected)
-  return null;
+  // Show landing page immediately for better SEO and crawler access
+  // Auth check happens in background, redirect only if authenticated
+  // This ensures crawlers and AI tools can see the content
+  return <LandingPage />;
 }
 
 function ReadinessRing({
