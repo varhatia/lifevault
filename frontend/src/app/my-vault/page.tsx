@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   encryptFile, 
@@ -99,7 +99,7 @@ const CATEGORY_NAMES: Record<string, string> = CATEGORIES_CONFIG.reduce((acc, ca
   return acc;
 }, {} as Record<string, string>);
 
-export default function MyVaultPage() {
+function MyVaultPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading, isAuthenticated } = useAuth();
@@ -3029,5 +3029,13 @@ function LifeSetupProgressiveWidget({
         </button>
       </div>
     </div>
+  );
+}
+
+export default function MyVaultPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <MyVaultPageContent />
+    </Suspense>
   );
 }

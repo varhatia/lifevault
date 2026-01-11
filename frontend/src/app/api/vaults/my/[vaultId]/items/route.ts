@@ -345,8 +345,10 @@ export async function POST(
         {
           description: 'Item uploaded to My Vault',
           outcome: 'success',
-          durationMs: timer.end(),
-          metadata: auditMetadata,
+          metadata: {
+            ...auditMetadata,
+            durationMs: timer.end(),
+          },
         }
       );
     } catch (logError) {
