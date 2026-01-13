@@ -42,6 +42,10 @@ export async function POST(req: NextRequest) {
     const userAgent = req.headers.get('user-agent') || null;
 
     // Handle device binding
+    // DEMO ACCOUNT BYPASS: Skip device authorization for demo account
+    const DEMO_EMAIL = 'demo1@gmail.com';
+    const isDemoAccount = user.email.toLowerCase() === DEMO_EMAIL.toLowerCase();
+    
     let deviceAuthorized = false;
     let requiresDeviceAuthorization = false;
 
@@ -64,40 +68,77 @@ export async function POST(req: NextRequest) {
         });
         deviceAuthorized = true;
       } else {
-        // Device is not trusted - requires authorization
-        requiresDeviceAuthorization = true;
-        
-        // Generate device name if not provided
-        const finalDeviceName = deviceName || getDeviceName(userAgent || '');
-        
-        // Create or update device record (inactive)
-        if (trustedDevice) {
-          await prisma.trustedDevice.update({
-            where: { id: trustedDevice.id },
-            data: {
-              deviceName: finalDeviceName,
-              userAgent: userAgent || null,
-              ipAddress: ip,
-              isActive: false,
-            },
-          });
+        // For demo account: auto-authorize device without email verification
+        if (isDemoAccount) {
+          // Auto-authorize device for demo account
+          const finalDeviceName = deviceName || getDeviceName(userAgent || '');
+          
+          if (trustedDevice) {
+            // Update existing device to active
+            await prisma.trustedDevice.update({
+              where: { id: trustedDevice.id },
+              data: {
+                deviceName: finalDeviceName,
+                userAgent: userAgent || null,
+                ipAddress: ip,
+                isActive: true,
+                lastUsedAt: now,
+              },
+            });
+          } else {
+            // Create new device as active
+            await prisma.trustedDevice.create({
+              data: {
+                userId: user.id,
+                deviceFingerprint,
+                deviceName: finalDeviceName,
+                userAgent: userAgent || null,
+                ipAddress: ip,
+                isActive: true,
+                lastUsedAt: now,
+              },
+            });
+          }
+          deviceAuthorized = true;
         } else {
-          await prisma.trustedDevice.create({
-            data: {
-              userId: user.id,
-              deviceFingerprint,
-              deviceName: finalDeviceName,
-              userAgent: userAgent || null,
-              ipAddress: ip,
-              isActive: false,
-            },
-          });
+          // Device is not trusted - requires authorization (normal flow)
+          requiresDeviceAuthorization = true;
+          
+          // Generate device name if not provided
+          const finalDeviceName = deviceName || getDeviceName(userAgent || '');
+          
+          // Create or update device record (inactive)
+          if (trustedDevice) {
+            await prisma.trustedDevice.update({
+              where: { id: trustedDevice.id },
+              data: {
+                deviceName: finalDeviceName,
+                userAgent: userAgent || null,
+                ipAddress: ip,
+                isActive: false,
+              },
+            });
+          } else {
+            await prisma.trustedDevice.create({
+              data: {
+                userId: user.id,
+                deviceFingerprint,
+                deviceName: finalDeviceName,
+                userAgent: userAgent || null,
+                ipAddress: ip,
+                isActive: false,
+              },
+            });
+          }
         }
       }
+    } else if (isDemoAccount) {
+      // For demo account, even without fingerprint, allow login
+      deviceAuthorized = true;
     }
 
-    // If device requires authorization, return error with flag
-    if (requiresDeviceAuthorization) {
+    // If device requires authorization, return error with flag (skip for demo account)
+    if (requiresDeviceAuthorization && !isDemoAccount) {
       return NextResponse.json(
         {
           error: 'Device authorization required',
