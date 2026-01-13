@@ -238,45 +238,69 @@ export default function LandingPage() {
       </section> */}
 
       {/* Nominee Access */}
-      <section id="nominee" className="border-b border-gray-200 bg-white py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 grid gap-10 lg:grid-cols-2 lg:items-center">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
+      <section id="nominee" className="border-b border-gray-200 bg-gray-50 py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
                 <KeyRound className="h-6 w-6 text-brand-500" />
               </div>
               <h3 className="text-3xl font-semibold text-gray-900">Available to Loved Ones — When Needed</h3>
             </div>
-            <p className="text-base text-gray-600">
+            <p className="text-base text-gray-600 max-w-3xl">
               LivPeace ensures your nominated loved ones can access critical information if you're ever unavailable—
               without compromising your privacy.
             </p>
-            <div className="space-y-3">
-              <BenefitPoint title="Secure nominee workflow" description="Controlled, read-only access with encrypted keys." />
-              <BenefitPoint title="No searching or guesswork" description="Everything organized and discoverable when needed." />
-              <BenefitPoint title="Access designed with care" description="Inactivity triggers with email reminders before access." />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-5 shadow-soft">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                <Shield className="h-5 w-5 text-brand-500" />
+              </div>
+              <div>
+                <h4 className="text-base font-semibold text-gray-900 mb-1">Secure nominee workflow</h4>
+                <p className="text-sm text-gray-600">Controlled, read-only access with encrypted keys.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-5 shadow-soft">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                <Search className="h-5 w-5 text-brand-500" />
+              </div>
+              <div>
+                <h4 className="text-base font-semibold text-gray-900 mb-1">No searching or guesswork</h4>
+                <p className="text-sm text-gray-600">Everything organized and discoverable when needed.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white p-5 shadow-soft">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-brand-500/10 flex-shrink-0">
+                <Bell className="h-5 w-5 text-brand-500" />
+              </div>
+              <div>
+                <h4 className="text-base font-semibold text-gray-900 mb-1">Access designed with care</h4>
+                <p className="text-sm text-gray-600">Inactivity triggers with email reminders before access.</p>
+              </div>
             </div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
+          <div className="mt-8 rounded-lg border border-gray-200 bg-white p-6 shadow-medium">
             <div className="flex items-center gap-3 mb-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-md bg-brand-500 text-white">
                 <KeyRound className="h-5 w-5" />
               </div>
               <div>
-                <div className="text-sm text-gray-500 font-medium">Nominee Pass</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-gray-500">Nominee Pass</div>
                 <div className="text-lg font-semibold text-gray-900">Secure, time-based access</div>
               </div>
             </div>
-            <div className="space-y-3 text-sm text-gray-600">
-              <div className="flex items-start gap-2">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
                 <Check className="mt-0.5 h-4 w-4 text-brand-500 flex-shrink-0" />
                 <span>Configurable inactivity period with reminders</span>
               </div>
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
                 <Check className="mt-0.5 h-4 w-4 text-brand-500 flex-shrink-0" />
                 <span>Read-only, zero-knowledge nominee access</span>
               </div>
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 text-sm text-gray-600">
                 <Check className="mt-0.5 h-4 w-4 text-brand-500 flex-shrink-0" />
                 <span>Secure key delivery — no plain text ever leaves your device</span>
               </div>
