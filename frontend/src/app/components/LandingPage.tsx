@@ -104,7 +104,7 @@ export default function LandingPage() {
       {/* Life Preparedness for Modern Families */}
       <section id="preparedness" className="border-b border-gray-200 bg-white py-16">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="max-w-3xl space-y-6">
+          <div className="space-y-6">
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
@@ -432,17 +432,19 @@ export default function LandingPage() {
       </section>
 
       {/* Ecosystem */}
-      <section id="ecosystem" className="border-b border-slate-800 py-16">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
-              <Zap className="h-6 w-6 text-brand-500" />
+      <section id="ecosystem" className="border-b border-gray-200 bg-gray-50 py-16">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+                <Zap className="h-6 w-6 text-brand-500" />
+              </div>
+              <h3 className="text-3xl font-semibold text-gray-900">Coming Soon</h3>
             </div>
-            <h3 className="text-3xl font-semibold text-gray-900">Coming Soon</h3>
-          </div> 
-          <p className="text-base text-gray-600 max-w-2xl">
-            Trusted ecosystem - LivPeace is Designed to eventually integrate with insurers, hospitals, lawyers, and estate planners — so families can move faster when it matters.
-          </p>
+            <p className="text-base text-gray-600 max-w-3xl">
+              Trusted ecosystem - LivPeace is designed to eventually integrate with insurers, hospitals, lawyers, and estate planners — so families can move faster when it matters.
+            </p>
+          </div>
         </div>
       </section>
 
