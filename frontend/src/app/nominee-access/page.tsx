@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, XCircle, AlertTriangle, Lock, Unlock } from "lucide-react";
+import { CheckCircle2, XCircle, AlertTriangle, Lock, Unlock, KeyRound } from "lucide-react";
 
 function NomineeAccessContent() {
   const router = useRouter();
@@ -141,24 +141,29 @@ function NomineeAccessContent() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 py-8">
       <div className="text-center">
-        <h1 className="text-3xl font-semibold tracking-tight">Nominee Access</h1>
-        <p className="mt-2 text-sm text-slate-300">
-          Request access to a LivPeace or unlock an approved vault
+        <div className="flex items-center justify-center gap-3 mb-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-500/10 flex-shrink-0">
+            <KeyRound className="h-6 w-6 text-brand-500" />
+          </div>
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Nominee Access</h1>
+        </div>
+        <p className="mt-2 text-base text-gray-600">
+          Request access to a LivPeace vault or unlock an approved vault
         </p>
       </div>
 
       {/* Mode Toggle */}
-      <div className="flex gap-2 rounded-lg border border-slate-800 bg-slate-900/60 p-1">
+      <div className="flex gap-2 rounded-lg border border-gray-200 bg-white p-1 shadow-soft">
         <button
           onClick={() => {
             setMode("request");
             setError(null);
             setSuccess(null);
           }}
-          className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             mode === "request"
-              ? "bg-brand-600 text-white"
-              : "text-slate-400 hover:text-white"
+              ? "bg-brand-500 text-white"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
           }`}
         >
           Request Access
@@ -169,10 +174,10 @@ function NomineeAccessContent() {
             setError(null);
             setSuccess(null);
           }}
-          className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             mode === "unlock"
-              ? "bg-brand-600 text-white"
-              : "text-slate-400 hover:text-white"
+              ? "bg-brand-500 text-white"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
           }`}
         >
           Unlock Vault
@@ -181,29 +186,29 @@ function NomineeAccessContent() {
 
       {/* Success/Error Messages */}
       {success && (
-        <div className="rounded-xl border border-green-800/50 bg-green-900/20 p-4">
+        <div className="rounded-lg border border-green-200 bg-green-50 p-4">
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="h-5 w-5 text-green-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-green-200">{success}</p>
+            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-green-800">{success}</p>
           </div>
         </div>
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-800/50 bg-red-900/20 p-4">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
           <div className="flex items-start gap-2">
-            <XCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-200">{error}</p>
+            <XCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800">{error}</p>
           </div>
         </div>
       )}
 
       {/* Vault Selection UI (when multiple vaults found) */}
       {showVaultSelection && availableVaults.length > 0 && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-medium">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white">Select Vault</h2>
-            <p className="mt-1 text-xs text-slate-400">
+            <h2 className="text-lg font-semibold text-gray-900">Select Vault</h2>
+            <p className="mt-1 text-sm text-gray-600">
               You are a nominee for multiple vaults. Please select which vault you want to request access for.
             </p>
           </div>
@@ -252,16 +257,16 @@ function NomineeAccessContent() {
                   }
                 }}
                 disabled={loading}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 p-4 text-left hover:border-brand-500 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                className="w-full rounded-md border border-gray-200 bg-gray-50 p-4 text-left hover:border-brand-500 hover:bg-white transition-colors disabled:opacity-50"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-white">{vault.vaultName}</p>
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-sm font-medium text-gray-900">{vault.vaultName}</p>
+                    <p className="text-xs text-gray-500 mt-1">
                       {vault.vaultType === 'family_vault' ? 'Family Vault' : 'Personal Vault'}
                     </p>
                   </div>
-                  <Lock className="h-5 w-5 text-slate-400" />
+                  <Lock className="h-5 w-5 text-gray-400" />
                 </div>
               </button>
             ))}
@@ -272,7 +277,7 @@ function NomineeAccessContent() {
               setShowVaultSelection(false);
               setAvailableVaults([]);
             }}
-            className="mt-4 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 hover:bg-slate-700"
+            className="mt-4 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
@@ -281,82 +286,82 @@ function NomineeAccessContent() {
 
       {/* Request Access Form (Use Case 1) */}
       {mode === "request" && !showVaultSelection && (
-        <form onSubmit={handleRequestAccess} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+        <form onSubmit={handleRequestAccess} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-medium">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white">Request Access</h2>
-            <p className="mt-1 text-xs text-slate-400">
-              Fill out this form to request read-only access to a LivPeace. The vault owner will be notified and can approve or reject your request.
+            <h2 className="text-lg font-semibold text-gray-900">Request Access</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Fill out this form to request read-only access to a LivPeace vault. The vault owner will be notified and can approve or reject your request.
             </p>
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Vault Owner Email *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Vault Owner Email *</label>
             <input
               type="email"
               value={userEmail}
               onChange={(e) => setUserEmail(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="owner@example.com"
               required
             />
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Your Name *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Your Name *</label>
             <input
               type="text"
               value={nomineeName}
               onChange={(e) => setNomineeName(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="John Doe"
               required
             />
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Your Email</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Your Email</label>
             <input
               type="email"
               value={nomineeEmail}
               onChange={(e) => setNomineeEmail(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="you@example.com"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               At least one of email or phone is required
             </p>
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Your Phone</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Your Phone</label>
             <input
               type="tel"
               value={nomineePhone}
               onChange={(e) => setNomineePhone(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="+1234567890"
             />
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Relationship to Vault Owner *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Relationship to Vault Owner *</label>
             <input
               type="text"
               value={relationship}
               onChange={(e) => setRelationship(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="e.g., Spouse, Child, Attorney, Friend"
               required
             />
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Reason for Access *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Reason for Access *</label>
             <textarea
               value={reasonForAccess}
               onChange={(e) => setReasonForAccess(e.target.value)}
               rows={4}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="Please explain why you need access to this vault..."
               required
             />
@@ -365,7 +370,7 @@ function NomineeAccessContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+            className="w-full rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 transition-colors"
           >
             {loading ? "Submitting..." : "Submit Access Request"}
           </button>
@@ -374,64 +379,64 @@ function NomineeAccessContent() {
 
       {/* Unlock Vault Form (Both Use Cases) */}
       {mode === "unlock" && (
-        <form onSubmit={handleUnlockVault} className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-6">
+        <form onSubmit={handleUnlockVault} className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-medium">
           <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white">Unlock Vault</h2>
-            <p className="mt-1 text-xs text-slate-400">
+            <h2 className="text-lg font-semibold text-gray-900">Unlock Vault</h2>
+            <p className="mt-1 text-sm text-gray-600">
               Unlock the vault using your Access Request ID (from the approval email), encrypted key part (Part C), and the decryption password shared with you by the vault owner.
             </p>
           </div>
 
-          <div className="rounded-xl border border-amber-800/50 bg-amber-900/20 p-3 mb-4">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4">
             <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-100/80">
+              <AlertTriangle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
                 You must have an approved access request to unlock the vault. Check your email for the Access Request ID after your request is approved.
               </p>
             </div>
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Access Request ID *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Access Request ID *</label>
             <input
               type="text"
               value={accessRequestId}
               onChange={(e) => setAccessRequestId(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none font-mono"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
               placeholder="Enter Access Request ID from approval email"
               required
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               This ID was sent to you in the approval email
             </p>
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Encrypted Key Part C *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Encrypted Key Part C *</label>
             <textarea
               value={encryptedPartC}
               onChange={(e) => setEncryptedPartC(e.target.value)}
               rows={4}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none font-mono"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
               placeholder="Paste your encrypted Part C (JSON string)..."
               required
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               The encrypted key part you received via email or from the vault owner
             </p>
           </div>
 
-          <div className="space-y-1 text-xs">
-            <label className="block text-slate-200">Decryption Password *</label>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">Decryption Password *</label>
             <input
               type="password"
               value={decryptionPassword}
               onChange={(e) => setDecryptionPassword(e.target.value)}
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-brand-500 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               placeholder="Password shared by vault owner"
               required
             />
-            <p className="text-[11px] text-slate-400 mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               The password shared with you separately by the vault owner (via phone, in person, etc.)
             </p>
           </div>
@@ -439,7 +444,7 @@ function NomineeAccessContent() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full rounded-md bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
           >
             {loading ? (
               <>
@@ -457,17 +462,32 @@ function NomineeAccessContent() {
       )}
 
       {/* Info Section */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-xs">
-        <h3 className="mb-2 text-sm font-semibold text-slate-100">How It Works</h3>
-        <ul className="space-y-2 text-slate-300">
-          <li>
-            <strong>Request Access:</strong> Submit a request to the vault owner. They will receive an email and can approve or reject your request.
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-6">
+        <h3 className="mb-3 text-base font-semibold text-gray-900">How It Works</h3>
+        <ul className="space-y-3 text-sm text-gray-600">
+          <li className="flex items-start gap-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 flex-shrink-0 mt-0.5">
+              <KeyRound className="h-3 w-3 text-brand-500" />
+            </div>
+            <div>
+              <strong className="text-gray-900">Request Access:</strong> Submit a request to the vault owner. They will receive an email and can approve or reject your request.
+            </div>
           </li>
-          <li>
-            <strong>Unlock Vault:</strong> Once approved or notified due to inactivity, use your encrypted key part (Part C) and decryption password to unlock the vault in read-only mode.
+          <li className="flex items-start gap-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 flex-shrink-0 mt-0.5">
+              <Unlock className="h-3 w-3 text-brand-500" />
+            </div>
+            <div>
+              <strong className="text-gray-900">Unlock Vault:</strong> Once approved or notified due to inactivity, use your encrypted key part (Part C) and decryption password to unlock the vault in read-only mode.
+            </div>
           </li>
-          <li>
-            <strong>Read-Only Access:</strong> Nominees can only view vault contents, not modify or delete anything.
+          <li className="flex items-start gap-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/10 flex-shrink-0 mt-0.5">
+              <Lock className="h-3 w-3 text-brand-500" />
+            </div>
+            <div>
+              <strong className="text-gray-900">Read-Only Access:</strong> Nominees can only view vault contents, not modify or delete anything.
+            </div>
           </li>
         </ul>
       </div>
