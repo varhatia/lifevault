@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/hooks/useAuth";
-import { Plus, Users, Lock, FileText, Settings, Trash2, Edit2, Eye, Download } from "lucide-react";
+import { Plus, Users, Lock, FileText, Settings, Trash2, Edit2, Eye, Download, Share2 } from "lucide-react";
 import CreateVaultModal from "./components/CreateVaultModal";
 import MemberManagementModal from "./components/MemberManagementModal";
 import AddItemModal from "@/components/vaults/AddItemModal";
@@ -858,6 +858,91 @@ export default function FamilyVaultPage() {
     }
   };
 
+  const handleShareItem = async (item: VaultItem) => {
+    if (!selectedVault) return;
+
+    // Check if document exists
+    if (!item.s3Key) {
+      alert("No document uploaded for this item.");
+      return;
+    }
+
+    const smkData = vaultSMKs.get(selectedVault.id);
+    if (!smkData) {
+      alert("Vault is locked. Please unlock it first.");
+      return;
+    }
+
+    try {
+      // Download encrypted blob from server
+      const response = await fetch(
+        `/api/family/vaults/${selectedVault.id}/items/${item.id}/download`
+      );
+      if (!response.ok) {
+        let message = "Failed to prepare file for sharing";
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(`${message} (status ${response.status})`);
+      }
+
+      const data = await response.json();
+      const { encryptedBlob, iv, metadata } = data;
+
+      if (!iv) {
+        throw new Error("IV not found - cannot decrypt");
+      }
+
+      // Get SMK as CryptoKey
+      const smkKey = await importAesKeyFromHex(smkData.smkHex);
+
+      // Decrypt file client-side (server never decrypts)
+      const decryptedBlob = await decryptFile(encryptedBlob, iv, smkKey);
+
+      const filename = metadata?.filename || item.title;
+      const mimeType = metadata?.type || "application/octet-stream";
+
+      const file = new File([decryptedBlob], filename, { type: mimeType });
+      const navAny = navigator as any;
+
+      const shareData: any = {
+        files: [file],
+        title: filename,
+        text: "Shared securely from your LivPeace family vault.",
+      };
+
+      if (navAny && typeof navAny.share === "function") {
+        if (!navAny.canShare || navAny.canShare(shareData)) {
+          try {
+            await navAny.share(shareData);
+            return;
+          } catch (err: any) {
+            if (err && err.name === "AbortError") {
+              return;
+            }
+            console.error("Error during share:", err);
+          }
+        }
+      }
+
+      // Fallback: trigger download so user can share via OS/apps
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error sharing file:", error);
+      alert("Failed to share file");
+    }
+  };
+
   const handleDeleteItem = async (itemId: string) => {
     if (!selectedVault) return;
     if (!confirm("Are you sure you want to delete this item?")) return;
@@ -1139,6 +1224,7 @@ export default function FamilyVaultPage() {
                   item={item}
                   userRole={userRole}
                   onDownload={() => handleDownloadItem(item)}
+                  onShare={() => handleShareItem(item)}
                   onDelete={() => handleDeleteItem(item.id)}
                 />
               ))}
@@ -1565,11 +1651,13 @@ function VaultItemCard({
   item,
   userRole,
   onDownload,
+  onShare,
   onDelete,
 }: {
   item: VaultItem;
   userRole: string | null;
   onDownload: () => void;
+  onShare?: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -1605,6 +1693,16 @@ function VaultItemCard({
             title="Download"
           >
             <Download className="w-4 h-4" />
+          </button>
+        )}
+        {/* Share button - available for all roles (admin, editor, viewer) */}
+        {item.s3Key && onShare && (
+          <button
+            onClick={onShare}
+            className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-700 rounded transition-colors"
+            title="Share"
+          >
+            <Share2 className="w-4 h-4" />
           </button>
         )}
         {/* Delete button - only for admin and editor (not viewer) */}

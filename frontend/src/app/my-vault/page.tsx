@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { 
-  encryptFile, 
-  deriveKeyFromPassword, 
-  decryptFile, 
-  encryptTextData, 
+import {
+  encryptFile,
+  deriveKeyFromPassword,
+  decryptFile,
+  encryptTextData,
   decryptTextData,
   importRecoveryKey,
   decryptVaultKeyWithRecoveryKey,
@@ -19,7 +19,21 @@ import AddNomineeModal from "./components/AddNomineeModal";
 import MemberManagementModal from "./components/MemberManagementModal";
 import DeleteVaultModal from "@/components/vaults/DeleteVaultModal";
 import FolderDetailView, { DOCUMENT_TEMPLATES } from "@/components/vaults/FolderDetailView";
-import { Download, Trash2, Users, UserPlus, ArrowRight, CheckCircle2, Bell, Calendar, Shield, Sparkles, Info, X } from "lucide-react";
+import {
+  Download,
+  Trash2,
+  Users,
+  UserPlus,
+  ArrowRight,
+  CheckCircle2,
+  Bell,
+  Calendar,
+  Shield,
+  Sparkles,
+  Info,
+  X,
+  Share2,
+} from "lucide-react";
 import { usePlanUsage } from "@/hooks/usePlanUsage";
 import UpgradeModal from "@/components/UpgradeModal";
 import { canCreateVault, getPlanLimits } from "@/lib/plan-limits";
@@ -475,7 +489,7 @@ function MyVaultPageContent() {
   };
 
   // Calculate readiness score (moved outside conditional to avoid hooks violation)
-  const readinessScore = useMemo(() => {
+  const readinessScore: any = useMemo(() => {
     if (!vaults || !allNominees || !activityLogs || !selectedVault) {
       return null;
     }
@@ -490,6 +504,16 @@ function MyVaultPageContent() {
     // Get members count for selected vault
     const vaultMembersCount = selectedVault.members?.filter((m: any) => m.acceptedAt !== null).length || 0;
     
+    // Derive review freshness inputs
+    const now = Date.now();
+    const daysSinceLastReview =
+      reviewStatus?.lastReviewedAt
+        ? Math.floor(
+            (now - new Date(reviewStatus.lastReviewedAt).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        : null;
+
     const inputs = {
       myVaults: vaults.map(v => ({
         id: v.id,
@@ -500,9 +524,27 @@ function MyVaultPageContent() {
       membersCount: vaultMembersCount,
       nomineesCount: vaultNomineesCount,
       logs: activityLogs,
+      daysSinceLastReview,
+      reviewIsDue: reviewStatus?.isReviewDue ?? null,
+      accountDaysSincePasswordChange: accountSecurityRotationStatus?.accountPassword.daysSinceChange,
+      accountPasswordNeedsRotation: accountSecurityRotationStatus?.accountPassword.needsRotation,
+      vaultDaysSinceRecoveryKey: securityRotationStatus?.recoveryKey.daysSinceGeneration,
+      recoveryKeyNeedsRotation: securityRotationStatus?.recoveryKey.needsRotation,
     };
     return computeReadinessScore(inputs);
-  }, [vaults, allNominees, activityLogs, selectedVault, items]);
+  }, [
+    vaults,
+    allNominees,
+    activityLogs,
+    selectedVault,
+    items,
+    reviewStatus?.lastReviewedAt,
+    reviewStatus?.isReviewDue,
+    accountSecurityRotationStatus?.accountPassword.daysSinceChange,
+    accountSecurityRotationStatus?.accountPassword.needsRotation,
+    securityRotationStatus?.recoveryKey.daysSinceGeneration,
+    securityRotationStatus?.recoveryKey.needsRotation,
+  ]);
 
   const loadVaults = async () => {
     try {
@@ -1065,6 +1107,103 @@ function MyVaultPageContent() {
       console.error("Error downloading file:", error);
       const message =
         error instanceof Error ? error.message : "Failed to download file";
+      alert(message);
+    }
+  };
+
+  const handleShare = async (item: VaultItem) => {
+    if (!selectedVault) return;
+
+    // Check if document exists
+    if (!item.s3Key) {
+      alert("No document uploaded for this item.");
+      return;
+    }
+
+    const vaultKeyData = vaultKeys.get(selectedVault.id);
+    if (!vaultKeyData) {
+      alert("Vault is locked. Please unlock it first.");
+      return;
+    }
+
+    try {
+      // Import vault key from hex
+      const keyArray = new Uint8Array(
+        vaultKeyData.keyHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16))
+      );
+      const vaultKey = await crypto.subtle.importKey(
+        "raw",
+        keyArray,
+        { name: "AES-GCM" },
+        false,
+        ["encrypt", "decrypt"]
+      );
+
+      // Download encrypted blob from server
+      const response = await fetch(
+        `/api/vaults/my/${selectedVault.id}/items/${item.id}/download`
+      );
+
+      if (!response.ok) {
+        let message = "Failed to prepare file for sharing";
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {
+          // ignore JSON parse errors
+        }
+        throw new Error(`${message} (status ${response.status})`);
+      }
+
+      const data = await response.json();
+      const { encryptedBlob, iv, metadata } = data;
+
+      if (!iv) {
+        throw new Error("IV not found - cannot decrypt");
+      }
+
+      // Decrypt file client-side (encryptedBlob is base64 string)
+      const decryptedBlob = await decryptFile(encryptedBlob, iv, vaultKey);
+
+      const filename = metadata?.filename || item.title;
+      const mimeType = metadata?.type || "application/octet-stream";
+
+      const file = new File([decryptedBlob], filename, { type: mimeType });
+      const navAny = navigator as any;
+
+      const shareData: any = {
+        files: [file],
+        title: filename,
+        text: "Shared securely from your LivPeace vault.",
+      };
+
+      // Use Web Share API when available (especially on mobile)
+      if (navAny && typeof navAny.share === "function") {
+        if (!navAny.canShare || navAny.canShare(shareData)) {
+          try {
+            await navAny.share(shareData);
+            return;
+          } catch (err: any) {
+            // Ignore user-cancelled share
+            if (err && err.name === "AbortError") {
+              return;
+            }
+            console.error("Error during share:", err);
+          }
+        }
+      }
+
+      // Fallback: trigger a download so the user can share via their OS/apps
+      const url = URL.createObjectURL(file);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error sharing file:", error);
+      const message =
+        error instanceof Error ? error.message : "Failed to share file";
       alert(message);
     }
   };
@@ -1809,8 +1948,8 @@ function MyVaultPageContent() {
 
           return (
             <div className="space-y-6 border-t border-gray-200 pt-6">
-              {/* Show wizard if user is owner and setup is incomplete */}
-              {isOwner && !isSetupComplete && (
+              {/* Show wizard only after readiness data is loaded, and only if basic setup is actually incomplete */}
+              {isOwner && !dashboardLoading && !isSetupComplete && (
                 <VaultSetupWizard
                   items={items}
                   nomineesCount={vaultNomineesCount}
@@ -1834,11 +1973,7 @@ function MyVaultPageContent() {
               {/* Show readiness score section once basic vault setup is complete */}
               {isOwner && isSetupComplete && readinessScore && (
                 <ReadinessSection
-                  myVaults={vaults}
-                  items={items}
-                  membersCount={selectedVault.members?.filter((m: any) => m.acceptedAt !== null).length || 0}
-                  nominees={allNominees}
-                  activityLogs={activityLogs}
+                  readiness={readinessScore}
                   loading={dashboardLoading}
                   onShowImprovements={() => setShowImprovementWizard(true)}
                   onCategoryClick={(categoryId) => {
@@ -2053,6 +2188,8 @@ function MyVaultPageContent() {
                   nomineesCount={vaultNomineesCount}
                   readinessScore={readinessScore?.score ?? 0}
                   activityLogs={activityLogs || []}
+                  accountPasswordNeedsRotation={accountSecurityRotationStatus?.accountPassword.needsRotation}
+                  recoveryKeyNeedsRotation={securityRotationStatus?.recoveryKey.needsRotation}
                   onCategoryClick={(categoryId) => {
                     const category = CATEGORIES_CONFIG.find(c => c.id === categoryId);
                     if (category) {
@@ -2333,6 +2470,7 @@ function MyVaultPageContent() {
                       key={item.id}
                       item={item}
                       onDownload={() => handleDownload(item)}
+                      onShare={() => handleShare(item)}
                       onDelete={() => handleDelete(item.id)}
                     />
                   ))}
@@ -2432,10 +2570,12 @@ function VaultCategory({
 function VaultItemCard({
   item,
   onDownload,
+  onShare,
   onDelete,
 }: {
   item: VaultItem;
   onDownload: () => void;
+  onShare?: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -2471,6 +2611,15 @@ function VaultItemCard({
             Download
           </button>
         )}
+        {item.s3Key && onShare && (
+          <button
+            onClick={onShare}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1.5 transition-colors"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </button>
+        )}
         <button
           onClick={onDelete}
           className="rounded-md bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 flex items-center gap-1.5 transition-colors"
@@ -2485,11 +2634,7 @@ function VaultItemCard({
 
 // Readiness Score Section - Only shown after vault unlock
 function ReadinessSection({
-  myVaults,
-  items,
-  membersCount,
-  nominees,
-  activityLogs,
+  readiness,
   loading,
   onShowImprovements,
   onCategoryClick,
@@ -2499,11 +2644,7 @@ function ReadinessSection({
   reviewStatus,
   onReviewClick,
 }: {
-  myVaults: MyVault[];
-  items: VaultItem[];
-  membersCount: number;
-  nominees: any[] | null;
-  activityLogs: any[] | null;
+  readiness: any;
   loading: boolean;
   onShowImprovements?: () => void;
   onCategoryClick?: (categoryId: string) => void;
@@ -2517,34 +2658,6 @@ function ReadinessSection({
   } | null;
   onReviewClick?: () => void;
 }) {
-  const readiness = useMemo(() => {
-    if (!myVaults || !nominees || !activityLogs) {
-      return null;
-    }
-
-    // Get nominees count for the selected vault (if any)
-    const selectedVault = myVaults[0]; // Use first vault as selected
-    const vaultNomineesCount = nominees.filter((n: any) => 
-      n.vaultType === "my_vault" && 
-      (n.myVault?.id === selectedVault?.id || n.myVaultId === selectedVault?.id || n.vaultId === selectedVault?.id) && 
-      n.isActive
-    ).length;
-
-    const inputs = {
-      myVaults: myVaults.map(v => ({
-        id: v.id,
-        name: v.name,
-        _count: v._count,
-      })),
-      items: items || [],
-      membersCount: membersCount || 0,
-      nomineesCount: vaultNomineesCount,
-      logs: activityLogs,
-    };
-
-    return computeReadinessScore(inputs);
-  }, [myVaults, items, membersCount, nominees, activityLogs]);
-
   if (loading || !readiness) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-soft">
@@ -2563,9 +2676,7 @@ function ReadinessSection({
           <p className="mt-2 text-sm text-gray-600">
             {readiness.score >= 80
               ? "You're well prepared. Keep things up to date."
-              : readiness.score < 80
-              ? "A few steps can significantly improve your preparedness."
-              : "The goal is not completion. The goal is confidence."}
+              : "A few steps can significantly improve your preparedness."}
           </p>
         </div>
         <div className="flex flex-col items-center justify-center">
@@ -2632,8 +2743,27 @@ function computeReadinessScore(inputs: {
   membersCount?: number; // Active members count
   nomineesCount: number;
   logs: any[];
+  // Freshness-related hints (optional)
+  daysSinceLastReview?: number | null;
+  reviewIsDue?: boolean | null;
+  accountDaysSincePasswordChange?: number | null;
+  accountPasswordNeedsRotation?: boolean | null;
+  vaultDaysSinceRecoveryKey?: number | null;
+  recoveryKeyNeedsRotation?: boolean | null;
 }) {
-  const { myVaults, items = [], membersCount = 0, nomineesCount, logs } = inputs;
+  const {
+    myVaults,
+    items = [],
+    membersCount = 0,
+    nomineesCount,
+    logs,
+    daysSinceLastReview = null,
+    reviewIsDue = null,
+    accountDaysSincePasswordChange = null,
+    accountPasswordNeedsRotation = null,
+    vaultDaysSinceRecoveryKey = null,
+    recoveryKeyNeedsRotation = null,
+  } = inputs;
 
   // 1. Vault completion (50 pts) - Based on category priority
   // Must-have categories (identity-vital, finance-investments, insurance)
@@ -2686,16 +2816,16 @@ function computeReadinessScore(inputs: {
   const optionalItems = items.filter(item => item.category === "legal-property");
 
   // Score calculation based on priority
-  // Must-have: 15 pts each (IDs, Bank Account, Insurance) = 45 pts
-  // Good-to-have: 3 pts per category = 6 pts max
-  // Optional: 1 pt max
+  // Must-have: IDs 15 pts, Bank Account 12 pts, Insurance 8 pts = 35 pts
+  // Good-to-have: 5 pts per category = 10 pts max
+  // Optional: 5 pts max
   const vaultCompletionPoints =
-    (hasIds ? 15 : 0) +                    // IDs (Aadhaar + PAN) - 15 pts
-    (hasBankAccount ? 15 : 0) +            // Bank Account - 15 pts
-    (hasInsurance ? 15 : 0) +              // Insurance (Life + Health) - 15 pts
-    (goodToHaveItems.length > 0 ? 3 : 0) + // Good-to-have items - 3 pts
-    (goodToHaveItems.length >= 2 ? 3 : 0) + // Both good-to-have categories - 3 pts
-    (optionalItems.length > 0 ? 1 : 0);     // Optional items - 1 pt (deprioritized)
+    (hasIds ? 15 : 0) +                     // IDs (Aadhaar + PAN) - 15 pts
+    (hasBankAccount ? 12 : 0) +             // Bank Account - 12 pts
+    (hasInsurance ? 8 : 0) +                // Insurance (Life + Health) - 8 pts
+    (goodToHaveItems.length > 0 ? 5 : 0) +  // At least one good-to-have category - 5 pts
+    (goodToHaveItems.length >= 2 ? 5 : 0) + // Both good-to-have categories - additional 5 pts
+    (optionalItems.length > 0 ? 5 : 0);     // Optional items - 5 pts
 
   // 2. Members & Nominee setup (25 pts)
   const hasNominee = (nomineesCount || 0) > 0;
@@ -2717,9 +2847,29 @@ function computeReadinessScore(inputs: {
   };
 
   // 3. Freshness & maintenance (15 pts)
-  const reviewedRecently = withinDays(30, "myvault_");
-  const passwordRotated = withinDays(90, "password_reset"); // Account password
-  const keysRotated = withinDays(180, "myvault_recovery_key_reset");
+  // A vault is considered "freshly reviewed" if:
+  // - Backend says review is NOT due (reviewIsDue === false), or
+  // - We see a recent 'vault_review_completed' log within 30 days
+  const reviewedRecently =
+    reviewIsDue === false
+      ? true
+      : withinDays(30, "vault_review_");
+
+  // Account password rotation:
+  // - If backend says rotation is NOT needed => treat as rotated
+  // - Otherwise, fall back to logs for recent password reset
+  const passwordRotated =
+    accountPasswordNeedsRotation === false
+      ? true
+      : withinDays(90, "password_reset");
+
+  // Recovery key rotation:
+  // - If backend says rotation is NOT needed => treat as rotated
+  // - Otherwise, fall back to logs for recent recovery key reset
+  const keysRotated =
+    recoveryKeyNeedsRotation === false
+      ? true
+      : withinDays(180, "myvault_recovery_key_reset");
 
   // TODO: Add vault-level password and recovery key rotation checks
   // When vault is unlocked, check:

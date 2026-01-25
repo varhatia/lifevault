@@ -34,6 +34,9 @@ type ReadinessImprovementWizardProps = {
   onRotateKeys: () => void;
   onAddMember: () => void;
   onClose?: () => void;
+  // Rotation status from backend APIs to avoid relying only on logs
+  accountPasswordNeedsRotation?: boolean;
+  recoveryKeyNeedsRotation?: boolean;
 };
 
 export default function ReadinessImprovementWizard({
@@ -47,6 +50,8 @@ export default function ReadinessImprovementWizard({
   onRotateKeys,
   onAddMember,
   onClose,
+  accountPasswordNeedsRotation,
+  recoveryKeyNeedsRotation,
 }: ReadinessImprovementWizardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -77,7 +82,7 @@ export default function ReadinessImprovementWizard({
         icon: <Scale className="w-5 h-5" />,
         categoryId: "loans-liabilities",
         actionType: "upload",
-        points: 3,
+        points: 5,
         completed: false,
         priority: "medium",
       });
@@ -91,15 +96,21 @@ export default function ReadinessImprovementWizard({
         icon: <Globe className="w-5 h-5" />,
         categoryId: "digital-assets",
         actionType: "upload",
-        points: 3,
+        points: 5,
         completed: false,
         priority: "medium",
       });
     }
 
     // Check password rotation
-    const passwordRotated = withinDays(90, "password_reset");
-    if (!passwordRotated) {
+    // Prefer backend rotation flag when available; fall back to logs otherwise
+    const passwordRotatedRecently = withinDays(90, "password_reset");
+    const shouldSuggestPasswordRotation =
+      accountPasswordNeedsRotation !== undefined
+        ? accountPasswordNeedsRotation
+        : !passwordRotatedRecently;
+
+    if (shouldSuggestPasswordRotation) {
       actionList.push({
         id: "rotate-password",
         title: "Rotate Master Password",
@@ -113,8 +124,13 @@ export default function ReadinessImprovementWizard({
     }
 
     // Check recovery key rotation
-    const keysRotated = withinDays(180, "myvault_recovery_key_reset");
-    if (!keysRotated) {
+    const keysRotatedRecently = withinDays(180, "myvault_recovery_key_reset");
+    const shouldSuggestRecoveryRotation =
+      recoveryKeyNeedsRotation !== undefined
+        ? recoveryKeyNeedsRotation
+        : !keysRotatedRecently;
+
+    if (shouldSuggestRecoveryRotation) {
       actionList.push({
         id: "rotate-recovery-keys",
         title: "Rotate Recovery Keys",
@@ -151,7 +167,7 @@ export default function ReadinessImprovementWizard({
         icon: <FileText className="w-5 h-5" />,
         categoryId: "legal-property",
         actionType: "upload",
-        points: 1,
+        points: 5,
         completed: false,
         priority: "low",
       });
